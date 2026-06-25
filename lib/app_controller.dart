@@ -185,6 +185,40 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     _setStatus('剪貼簿沒有可傳送的內容');
   }
 
+  /// 清除收到的內容:刪除已落地的暫存檔並清空清單,釋放裝置容量。
+  ///
+  /// 除了清單裡記錄的 [ReceivedItem.savedPath],也順手掃描整個接收目錄,
+  /// 把之前啟動殘留、已不在清單中的檔案一併刪掉。
+  Future<void> clearReceived() async {
+    for (final item in received) {
+      final path = item.savedPath;
+      if (path == null) continue;
+      try {
+        final f = File(path);
+        if (await f.exists()) await f.delete();
+      } catch (_) {
+        // 單檔刪除失敗不影響其餘清理。
+      }
+    }
+    var count = received.length;
+    try {
+      final dir = await LanTransport.receivedDir();
+      if (await dir.exists()) {
+        await for (final entity in dir.list()) {
+          if (entity is File) {
+            try {
+              await entity.delete();
+              count++;
+            } catch (_) {}
+          }
+        }
+      }
+    } catch (_) {}
+    received.clear();
+    _setStatus(count > 0 ? '已清除收到的內容' : '沒有可清除的內容');
+    notifyListeners();
+  }
+
   void _setStatus(String s) {
     status = s;
     notifyListeners();

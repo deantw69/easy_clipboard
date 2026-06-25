@@ -162,7 +162,23 @@ class DevicePage extends StatelessWidget {
         _SendActions(device: device),
         if (_isDesktop) const _DesktopHint(),
         const Divider(height: 1),
-        _SectionTitle('收到的內容 (${c.received.length})'),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text('收到的內容 (${c.received.length})',
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+              ),
+              if (c.received.isNotEmpty)
+                TextButton.icon(
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  label: const Text('清除'),
+                  onPressed: () => _confirmClearReceived(context, c),
+                ),
+            ],
+          ),
+        ),
         Expanded(
           child: c.received.isEmpty
               ? const Center(child: Text('尚無收到的內容'))
@@ -190,6 +206,30 @@ class DevicePage extends StatelessWidget {
       body: body,
     );
   }
+}
+
+/// 清除收到的內容:跳確認對話框,確認後刪除暫存檔釋放容量。
+Future<void> _confirmClearReceived(
+    BuildContext context, AppController c) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('清除收到的內容'),
+      content: const Text('將刪除已收到並暫存於本機的檔案以釋放容量,此動作無法復原。\n'
+          '(已存進相簿的圖片/影片不受影響。)'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('取消'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('清除'),
+        ),
+      ],
+    ),
+  );
+  if (ok == true) await c.clearReceived();
 }
 
 /// 傳送按鈕:圖片/影片、剪貼簿。

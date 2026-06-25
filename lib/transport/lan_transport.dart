@@ -205,6 +205,9 @@ class LanTransport implements Transport {
     return TransferEnvelope.fromJson(json);
   }
 
+  /// 對外公開接收檔案的落地目錄,供清除暫存時掃描。
+  static Future<Directory> receivedDir() => _saveDir();
+
   /// 接收檔案的落地目錄。桌面用 Downloads,行動裝置用 App 文件目錄。
   static Future<Directory> _saveDir() async {
     Directory base;

@@ -4,13 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'app_controller.dart';
+import 'core/desktop_tray_service.dart';
 import 'core/share_handler.dart';
 import 'features/home_page.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
+final desktopTray = DesktopTrayService();
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await DesktopTrayService.ensureInitialized();
   runApp(
     ChangeNotifierProvider(
       create: (_) {
@@ -24,13 +27,19 @@ void main() {
           if (ctx != null) await showReceivedUrlDialog(ctx, url);
         };
         c.init();
-        // iOS:接上系統分享選單。等首幀後再啟動,確保 navigator 已建立。
+
         if (Platform.isIOS) {
           final handler =
               ShareHandler(controller: c, navigatorKey: navigatorKey);
           WidgetsBinding.instance
               .addPostFrameCallback((_) => handler.start());
         }
+
+        if (DesktopTrayService.isWindows) {
+          desktopTray.onWindowShown = () => c.refreshDiscovery();
+          desktopTray.init();
+        }
+
         return c;
       },
       child: const EasyClipboardApp(),

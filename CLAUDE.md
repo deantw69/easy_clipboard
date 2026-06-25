@@ -20,6 +20,18 @@
 - Runner target 的 build phases 順序:**Embed Foundation Extensions 必須在 Thin Binary、[CP] Embed Pods Frameworks 之前**,否則會出現 "Cycle inside Runner" 建置循環。
 - Xcode 26.5 專案格式 objectVersion=70,舊版 xcodeproj gem 會 pod install 失敗;需手動在 `xcodeproj/constants.rb` 補 `70 => 'Xcode 16.0'`。
 
+## Windows 系統匣(Minimize to Tray)
+- 實作在 `lib/core/desktop_tray_service.dart`，僅 Windows 啟用。
+- 套件：`tray_manager`（匣圖示與選單）、`window_manager`（視窗攔截與控制）。
+- 行為：點 X 或最小化 → 隱藏到系統匣（不結束程式）；左鍵點匣圖示 → 還原視窗；右鍵 → 選單（顯示視窗 / 結束）。
+- 匣圖示檔：`assets/icon/tray_icon.ico`（從 `app_icon.png` 轉換）。
+- `main.dart` 在 `runApp()` 前呼叫 `DesktopTrayService.ensureInitialized()` 初始化 window_manager。
+- 視窗還原時會觸發 `AppController.refreshDiscovery()` 立即重新掃描 mDNS。
+
+## mDNS 探索(桌面端)
+- 桌面端（Windows / macOS）每 15 秒自動呼叫 `_discovery.refresh()` 重新掃描，解決 iOS 切背景再回來後桌面端找不到的問題。
+- 定時器在 `AppController.init()` 中建立，`dispose()` 時取消。
+
 ## 開機自啟動
 - 設定入口：首頁 AppBar 齒輪圖示 → 設定對話框的「開機自動啟動」開關（僅 macOS / Windows 顯示）。
 - 實作在 `lib/core/autostart.dart`：

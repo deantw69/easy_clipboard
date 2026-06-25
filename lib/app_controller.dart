@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
@@ -20,6 +21,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
 
   Transport? _transport;
   DeviceInfo? _local;
+  Timer? _refreshTimer;
 
   List<DeviceInfo> devices = [];
   final List<ReceivedItem> received = [];
@@ -58,6 +60,14 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
 
     WidgetsBinding.instance.addObserver(this);
 
+    // 桌面端定時重新掃描,解決 iOS 切背景再回來後找不到的問題。
+    if (isDesktop) {
+      _refreshTimer = Timer.periodic(
+        const Duration(seconds: 15),
+        (_) => _discovery.refresh(),
+      );
+    }
+
     ready = true;
     notifyListeners();
   }
@@ -71,6 +81,11 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed && ready) {
       _discovery.refresh();
     }
+  }
+
+  /// 手動觸發 mDNS 重新掃描（從系統匣還原視窗時使用）。
+  void refreshDiscovery() {
+    if (ready) _discovery.refresh();
   }
 
   /// 嘗試在一段埠範圍內啟動接收端,回傳實際使用的埠。
@@ -313,6 +328,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _discovery.stop();
     _transport?.stop();

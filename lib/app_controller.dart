@@ -24,6 +24,9 @@ class AppController extends ChangeNotifier {
   String? status;
   bool ready = false;
 
+  /// 收到圖片時由 UI 設定:跳出預覽,讓接收方決定要複製到剪貼簿或儲存。
+  Future<void> Function(ReceivedItem item)? onImageReceived;
+
   DeviceInfo? get local => _local;
   bool get isDesktop =>
       Platform.isMacOS || Platform.isWindows || Platform.isLinux;
@@ -68,22 +71,61 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _onReceived(ReceivedItem item) async {
-    switch (item.envelope.kind) {
-      case PayloadKind.clipboardText:
-        if (item.text != null) await clipboard.writeText(item.text!);
-        break;
-      case PayloadKind.clipboardImage:
-        if (item.savedPath != null) {
-          final bytes = await File(item.savedPath!).readAsBytes();
-          await clipboard.writeImagePng(bytes);
-        }
-        break;
-      case PayloadKind.file:
-        await _maybeSaveToGallery(item);
-        break;
+    final env = item.envelope;
+    if (env.kind == PayloadKind.clipboardText) {
+      if (item.text != null) await clipboard.writeText(item.text!);
+    } else if (_isImage(env)) {
+      // 圖片一律交給接收方決定:跳預覽,選複製到剪貼簿或儲存。
+      received.insert(0, item);
+      notifyListeners();
+      await onImageReceived?.call(item);
+      return;
+    } else {
+      await _maybeSaveToGallery(item); // 影片等其他檔
     }
     received.insert(0, item);
     notifyListeners();
+  }
+
+  bool _isImage(TransferEnvelope env) {
+    if (env.kind == PayloadKind.clipboardImage) return true;
+    return env.kind == PayloadKind.file &&
+        (env.mime?.startsWith('image/') ?? false);
+  }
+
+  /// 接收方:把收到的圖片複製到本機剪貼簿。
+  Future<void> copyReceivedImage(ReceivedItem item) async {
+    final path = item.savedPath;
+    if (path == null) return;
+    final bytes = await File(path).readAsBytes();
+    await clipboard.writeImagePng(bytes);
+    _setStatus('已複製圖片到剪貼簿');
+  }
+
+  /// 接收方(行動裝置):把收到的圖片存進系統相簿。
+  Future<void> saveReceivedImageToGallery(ReceivedItem item) async {
+    final path = item.savedPath;
+    if (path == null) return;
+    try {
+      await Gal.putImage(path);
+      _setStatus('已存入相簿');
+    } on GalException catch (e) {
+      _setStatus('存入相簿失敗:${e.type.message}');
+    }
+  }
+
+  /// 接收方(桌面):在檔案總管 / Finder 中顯示收到的檔案。
+  Future<void> revealReceivedImage(ReceivedItem item) async {
+    final path = item.savedPath;
+    if (path == null) return;
+    if (Platform.isMacOS) {
+      await Process.run('open', ['-R', path]);
+    } else if (Platform.isWindows) {
+      await Process.run('explorer', ['/select,', path]);
+    } else if (Platform.isLinux) {
+      await Process.run('xdg-open', [File(path).parent.path]);
+    }
+    _setStatus('已在檔案總管顯示');
   }
 
   /// iOS:收到的圖片 / 影片直接存進系統相簿,而非只留在 App 目錄。

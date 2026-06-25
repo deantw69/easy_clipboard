@@ -168,6 +168,47 @@ class _DesktopShortcuts extends StatelessWidget {
   }
 }
 
+/// 接收方:收到圖片時跳出預覽,由本機決定複製到剪貼簿或儲存。
+Future<void> showReceivedImageDialog(
+    BuildContext context, ReceivedItem item, AppController c) async {
+  final path = item.savedPath;
+  if (path == null) return;
+  await showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('收到圖片'),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 360, maxWidth: 360),
+        child: Image.file(File(path), fit: BoxFit.contain),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.pop(ctx);
+            c.copyReceivedImage(item);
+          },
+          child: const Text('複製到剪貼簿'),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.pop(ctx);
+            if (c.isDesktop) {
+              c.revealReceivedImage(item);
+            } else {
+              c.saveReceivedImageToGallery(item);
+            }
+          },
+          child: Text(c.isDesktop ? '在 Finder 顯示' : '存進相簿'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('關閉'),
+        ),
+      ],
+    ),
+  );
+}
+
 /// 桌面:拖曳檔案到視窗放開即傳出。
 class _DropZone extends StatefulWidget {
   final DeviceInfo device;
@@ -275,33 +316,43 @@ class _ReceivedTile extends StatelessWidget {
   final ReceivedItem item;
   const _ReceivedTile({required this.item});
 
+  bool get _isImage =>
+      item.envelope.kind == PayloadKind.clipboardImage ||
+      (item.envelope.kind == PayloadKind.file &&
+          (item.envelope.mime?.startsWith('image/') ?? false));
+
   @override
   Widget build(BuildContext context) {
     final env = item.envelope;
-    switch (env.kind) {
-      case PayloadKind.clipboardText:
-        return ListTile(
-          leading: const Icon(Icons.text_snippet),
-          title: const Text('剪貼簿文字(已寫入本機剪貼簿)'),
-          subtitle: Text(item.text ?? '',
-              maxLines: 2, overflow: TextOverflow.ellipsis),
-        );
-      case PayloadKind.clipboardImage:
-        return ListTile(
-          leading: const Icon(Icons.image),
-          title: const Text('剪貼簿圖片(已寫入本機剪貼簿)'),
-          subtitle: Text(item.savedPath ?? ''),
-        );
-      case PayloadKind.file:
-        final savedToGallery =
-            Platform.isIOS && (env.mime?.startsWith('image/') == true ||
-                env.mime?.startsWith('video/') == true);
-        return ListTile(
-          leading: const Icon(Icons.insert_drive_file),
-          title: Text(env.fileName ?? '檔案'),
-          subtitle: Text(savedToGallery ? '已存入相簿' : (item.savedPath ?? '')),
-        );
+    if (env.kind == PayloadKind.clipboardText) {
+      return ListTile(
+        leading: const Icon(Icons.text_snippet),
+        title: const Text('剪貼簿文字(已寫入本機剪貼簿)'),
+        subtitle: Text(item.text ?? '',
+            maxLines: 2, overflow: TextOverflow.ellipsis),
+      );
     }
+    if (_isImage && item.savedPath != null) {
+      final c = context.read<AppController>();
+      return ListTile(
+        leading: SizedBox(
+          width: 48,
+          height: 48,
+          child: Image.file(File(item.savedPath!), fit: BoxFit.cover),
+        ),
+        title: const Text('收到圖片'),
+        subtitle: const Text('點此選擇複製到剪貼簿或儲存'),
+        onTap: () => showReceivedImageDialog(context, item, c),
+      );
+    }
+    final savedToGallery = Platform.isIOS &&
+        (env.mime?.startsWith('image/') == true ||
+            env.mime?.startsWith('video/') == true);
+    return ListTile(
+      leading: const Icon(Icons.insert_drive_file),
+      title: Text(env.fileName ?? '檔案'),
+      subtitle: Text(savedToGallery ? '已存入相簿' : (item.savedPath ?? '')),
+    );
   }
 }
 
@@ -314,7 +365,7 @@ class _IosNotice extends StatelessWidget {
       color: Colors.amber.withValues(alpha: 0.2),
       padding: const EdgeInsets.all(8),
       child: const Text(
-        'iOS 限制:需保持 App 開啟才能收發;剪貼簿須手動按「傳送剪貼簿」。收到的圖片/影片會存入相簿。',
+        'iOS 限制:需保持 App 開啟才能收發;剪貼簿須手動按「傳送剪貼簿」。收到圖片時會跳預覽,自行選擇複製到剪貼簿或存進相簿;影片仍直接存入相簿。',
         style: TextStyle(fontSize: 12),
       ),
     );

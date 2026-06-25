@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:gal/gal.dart';
 
 import 'clipboard/clipboard_service.dart';
 import 'core/identity.dart';
@@ -78,10 +79,30 @@ class AppController extends ChangeNotifier {
         }
         break;
       case PayloadKind.file:
+        await _maybeSaveToGallery(item);
         break;
     }
     received.insert(0, item);
     notifyListeners();
+  }
+
+  /// iOS:收到的圖片 / 影片直接存進系統相簿,而非只留在 App 目錄。
+  Future<void> _maybeSaveToGallery(ReceivedItem item) async {
+    if (!Platform.isIOS) return;
+    final path = item.savedPath;
+    final mime = item.envelope.mime ?? '';
+    if (path == null) return;
+    try {
+      if (mime.startsWith('image/')) {
+        await Gal.putImage(path);
+        _setStatus('已存入相簿:${item.envelope.fileName ?? '圖片'}');
+      } else if (mime.startsWith('video/')) {
+        await Gal.putVideo(path);
+        _setStatus('已存入相簿:${item.envelope.fileName ?? '影片'}');
+      }
+    } on GalException catch (e) {
+      _setStatus('存入相簿失敗:${e.type.message}');
+    }
   }
 
   // ---- 對 UI 的操作 ----

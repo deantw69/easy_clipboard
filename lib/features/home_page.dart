@@ -1,13 +1,19 @@
 import 'dart:io';
 
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../app_controller.dart';
 import '../core/models.dart';
 
+bool get _isDesktop =>
+    Platform.isMacOS || Platform.isWindows || Platform.isLinux;
+
+/// 第一頁:附近的裝置清單。點選裝置即「連上」並進入該裝置的傳輸頁。
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
@@ -25,15 +31,8 @@ class HomePage extends StatelessWidget {
           : Column(
               children: [
                 if (Platform.isIOS) const _IosNotice(),
-                if (c.status != null)
-                  Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Text(c.status!,
-                        style: const TextStyle(color: Colors.teal)),
-                  ),
                 _SectionTitle('附近的裝置 (${c.devices.length})'),
                 Expanded(
-                  flex: 2,
                   child: c.devices.isEmpty
                       ? const Center(child: Text('搜尋中… 確認在同一個 Wi-Fi'))
                       : ListView(
@@ -42,16 +41,6 @@ class HomePage extends StatelessWidget {
                               _DeviceTile(device: d),
                           ],
                         ),
-                ),
-                const Divider(height: 1),
-                _SectionTitle('收到的內容 (${c.received.length})'),
-                Expanded(
-                  flex: 1,
-                  child: ListView(
-                    children: [
-                      for (final r in c.received) _ReceivedTile(item: r),
-                    ],
-                  ),
                 ),
               ],
             ),
@@ -69,47 +58,168 @@ class _DeviceTile extends StatelessWidget {
       leading: const Icon(Icons.devices),
       title: Text(device.name),
       subtitle: Text('${device.platform} · ${device.host}:${device.port}'),
-      onTap: () => _showActions(context, device),
-    );
-  }
-
-  void _showActions(BuildContext context, DeviceInfo device) {
-    final c = context.read<AppController>();
-    showModalBottomSheet(
-      context: context,
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('傳送圖片 / 影片'),
-              onTap: () async {
-                Navigator.pop(context);
-                await _pickAndSend(context, c, device);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.content_paste),
-              title: const Text('傳送剪貼簿'),
-              onTap: () async {
-                Navigator.pop(context);
-                await c.sendClipboard(device);
-              },
-            ),
-          ],
-        ),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => DevicePage(device: device)),
       ),
     );
   }
+}
 
-  Future<void> _pickAndSend(
-      BuildContext context, AppController c, DeviceInfo device) async {
-    final path = await _pickMediaPath();
-    if (path == null) return;
-    if (!context.mounted) return;
-    await _sendWithProgress(context, c, device, path);
+/// 第二頁:已連上某裝置。上半部為傳送操作,下半部為收到的內容。
+///
+/// 桌面額外支援:Cmd/Ctrl+V 直接傳出剪貼簿、拖曳圖片/影片到視窗放開即傳出。
+class DevicePage extends StatelessWidget {
+  final DeviceInfo device;
+  const DevicePage({super.key, required this.device});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.watch<AppController>();
+    Widget body = Column(
+      children: [
+        if (c.status != null)
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: Text(c.status!,
+                style: const TextStyle(color: Colors.teal)),
+          ),
+        const _SectionTitle('傳送'),
+        _SendActions(device: device),
+        if (_isDesktop) const _DesktopHint(),
+        const Divider(height: 1),
+        _SectionTitle('收到的內容 (${c.received.length})'),
+        Expanded(
+          child: c.received.isEmpty
+              ? const Center(child: Text('尚無收到的內容'))
+              : ListView(
+                  children: [
+                    for (final r in c.received) _ReceivedTile(item: r),
+                  ],
+                ),
+        ),
+      ],
+    );
+
+    if (_isDesktop) {
+      body = _DesktopShortcuts(
+        device: device,
+        child: _DropZone(device: device, child: body),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('已連上 ${device.name}'),
+        leading: const BackButton(),
+      ),
+      body: body,
+    );
   }
+}
+
+/// 傳送按鈕:圖片/影片、剪貼簿。
+class _SendActions extends StatelessWidget {
+  final DeviceInfo device;
+  const _SendActions({required this.device});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.read<AppController>();
+    return Column(
+      children: [
+        ListTile(
+          leading: const Icon(Icons.photo_library),
+          title: const Text('傳送圖片 / 影片'),
+          onTap: () async {
+            final path = await _pickMediaPath();
+            if (path == null || !context.mounted) return;
+            await _sendWithProgress(context, c, device, path);
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.content_paste),
+          title: const Text('傳送剪貼簿'),
+          onTap: () => c.sendClipboard(device),
+        ),
+      ],
+    );
+  }
+}
+
+/// 桌面:攔截 Cmd/Ctrl+V,直接把目前剪貼簿(圖片優先,否則文字)傳出。
+class _DesktopShortcuts extends StatelessWidget {
+  final DeviceInfo device;
+  final Widget child;
+  const _DesktopShortcuts({required this.device, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.read<AppController>();
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyV, meta: true): () =>
+            c.sendClipboard(device),
+        const SingleActivator(LogicalKeyboardKey.keyV, control: true): () =>
+            c.sendClipboard(device),
+      },
+      child: Focus(autofocus: true, child: child),
+    );
+  }
+}
+
+/// 桌面:拖曳檔案到視窗放開即傳出。
+class _DropZone extends StatefulWidget {
+  final DeviceInfo device;
+  final Widget child;
+  const _DropZone({required this.device, required this.child});
+
+  @override
+  State<_DropZone> createState() => _DropZoneState();
+}
+
+class _DropZoneState extends State<_DropZone> {
+  bool _dragging = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.read<AppController>();
+    return DropTarget(
+      onDragEntered: (_) => setState(() => _dragging = true),
+      onDragExited: (_) => setState(() => _dragging = false),
+      onDragDone: (detail) async {
+        setState(() => _dragging = false);
+        for (final file in detail.files) {
+          if (!context.mounted) return;
+          await _sendWithProgress(context, c, widget.device, file.path);
+        }
+      },
+      child: Container(
+        decoration: _dragging
+            ? BoxDecoration(
+                border: Border.all(color: Colors.teal, width: 3),
+                color: Colors.teal.withValues(alpha: 0.05),
+              )
+            : null,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+class _DesktopHint extends StatelessWidget {
+  const _DesktopHint();
+  @override
+  Widget build(BuildContext context) => const Padding(
+        padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            '提示:按 ⌘/Ctrl + V 直接傳出剪貼簿;或把圖片/影片拖曳到此視窗放開即傳出。',
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+        ),
+      );
 }
 
 /// 依平台選取圖片/影片,回傳本機路徑。
@@ -183,10 +293,13 @@ class _ReceivedTile extends StatelessWidget {
           subtitle: Text(item.savedPath ?? ''),
         );
       case PayloadKind.file:
+        final savedToGallery =
+            Platform.isIOS && (env.mime?.startsWith('image/') == true ||
+                env.mime?.startsWith('video/') == true);
         return ListTile(
           leading: const Icon(Icons.insert_drive_file),
           title: Text(env.fileName ?? '檔案'),
-          subtitle: Text(item.savedPath ?? ''),
+          subtitle: Text(savedToGallery ? '已存入相簿' : (item.savedPath ?? '')),
         );
     }
   }
@@ -201,7 +314,7 @@ class _IosNotice extends StatelessWidget {
       color: Colors.amber.withValues(alpha: 0.2),
       padding: const EdgeInsets.all(8),
       child: const Text(
-        'iOS 限制:需保持 App 開啟才能收發;剪貼簿須手動按「傳送剪貼簿」。',
+        'iOS 限制:需保持 App 開啟才能收發;剪貼簿須手動按「傳送剪貼簿」。收到的圖片/影片會存入相簿。',
         style: TextStyle(fontSize: 12),
       ),
     );

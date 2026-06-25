@@ -5,8 +5,11 @@
 ## 特色
 
 - **自動發現**：同一 Wi-Fi 下，裝置透過 mDNS / Bonjour 互相發現並廣播，自動列出可連線裝置。
+- **兩段式操作**：第一頁是附近裝置清單，點選裝置即「連上」並進入該裝置的傳輸頁；傳輸頁上半部為傳送操作、下半部為收到的內容。
 - **檔案直傳**：接收端跑 HTTP server，傳送端串流上傳（邊收邊寫），大檔不佔記憶體。
 - **剪貼簿互傳**：讀取本機剪貼簿（文字 / 圖片）傳到目標裝置，接收端自動寫入系統剪貼簿。
+- **iOS 收檔存相簿**：iPhone 收到的圖片 / 影片直接存進系統相簿，而非僅留在 App 目錄。
+- **桌面快捷操作**（macOS / Windows）：在傳輸頁按 **⌘/Ctrl + V** 直接傳出目前剪貼簿（圖片優先、否則文字）；或將圖片 / 影片**拖曳到視窗放開**即傳出。
 - **單一程式碼庫**：macOS / iOS / Windows 共用同一份 Flutter 程式碼。
 - **可擴展架構**：傳輸層 / 發現層 / 資料模型以介面抽象，未來可擴展「跨網路雲端中繼」而不動既有結構。
 
@@ -16,6 +19,8 @@
 | --- | --- | --- |
 | 背景接收 | 可（App 在前景 / 背景皆可運作） | 受限：需保持 App 開啟於前景 |
 | 剪貼簿讀取 | 直接讀取 | 讀取時系統會跳出橫幅提示 |
+| ⌘/Ctrl+V 傳出、拖曳傳出 | 支援 | 不適用 |
+| 收到圖片 / 影片 | 存到下載資料夾 | 存進系統相簿 |
 
 ## 架構
 
@@ -35,7 +40,7 @@ lib/
 ├── clipboard/
 │   └── clipboard_service.dart      系統剪貼簿讀寫（super_clipboard）
 └── features/
-    └── home_page.dart              裝置清單 / 傳送 / 接收紀錄 UI
+    └── home_page.dart              HomePage（裝置清單）＋ DevicePage（傳送 / 接收 / 桌面快捷與拖曳）
 ```
 
 ### 區網傳輸協定
@@ -59,8 +64,8 @@ flutter run            # 桌面或已連接的裝置
 
 ### 平台設定
 
-- **iOS** `Info.plist`：本地網路 / Bonjour 服務、相簿權限；Podfile `platform :ios, '13.0'`。
-- **macOS** entitlements：network server / client、檔案存取。
+- **iOS** `Info.plist`：本地網路 / Bonjour 服務、相簿讀取（`NSPhotoLibraryUsageDescription`）與相簿寫入（`NSPhotoLibraryAddUsageDescription`）權限；Podfile `platform :ios, '13.0'`。
+- **macOS** entitlements：network server / client、檔案存取（拖曳進來的檔案以 user-selected 權限讀取）。
 
 ## 開發
 

@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../app_controller.dart';
+import '../core/autostart.dart';
 import '../core/models.dart';
 
 bool get _isDesktop =>
@@ -25,6 +26,14 @@ class HomePage extends StatelessWidget {
         title: Text(c.local == null
             ? 'EasyClipboard'
             : '${c.local!.name} · ${c.local!.platform}'),
+        actions: [
+          if (AutostartService.supported)
+            IconButton(
+              icon: const Icon(Icons.settings),
+              tooltip: '設定',
+              onPressed: () => showSettingsDialog(context),
+            ),
+        ],
       ),
       body: !c.ready
           ? const Center(child: CircularProgressIndicator())
@@ -44,6 +53,71 @@ class HomePage extends StatelessWidget {
                 ),
               ],
             ),
+    );
+  }
+}
+
+/// 設定對話框:目前提供「開機自動啟動」開關(僅桌面平台)。
+Future<void> showSettingsDialog(BuildContext context) async {
+  await showDialog<void>(
+    context: context,
+    builder: (_) => const _SettingsDialog(),
+  );
+}
+
+class _SettingsDialog extends StatefulWidget {
+  const _SettingsDialog();
+
+  @override
+  State<_SettingsDialog> createState() => _SettingsDialogState();
+}
+
+class _SettingsDialogState extends State<_SettingsDialog> {
+  bool? _autostart;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    AutostartService.isEnabled().then((v) {
+      if (mounted) setState(() => _autostart = v);
+    });
+  }
+
+  Future<void> _toggle(bool value) async {
+    setState(() => _busy = true);
+    try {
+      await AutostartService.setEnabled(value);
+      final actual = await AutostartService.isEnabled();
+      if (mounted) setState(() => _autostart = actual);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('設定失敗:$e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('設定'),
+      content: SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        title: const Text('開機自動啟動'),
+        subtitle: const Text('登入系統時自動開啟 EasyClipboard'),
+        value: _autostart ?? false,
+        onChanged: (_autostart == null || _busy) ? null : _toggle,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('關閉'),
+        ),
+      ],
     );
   }
 }

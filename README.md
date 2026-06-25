@@ -11,6 +11,7 @@
 - **圖片由接收方決定**：收到圖片（剪貼簿圖片或圖片檔）時，接收端跳出預覽，由本機自行選擇「複製到剪貼簿」或「儲存」（桌面：在 Finder / 檔案總管顯示；iOS：存進相簿），傳送端不再代為決定。
 - **iOS 收影片存相簿**：iPhone 收到的影片直接存進系統相簿，而非僅留在 App 目錄。
 - **桌面快捷操作**（macOS / Windows）：在傳輸頁按 **⌘/Ctrl + V** 直接傳出目前剪貼簿（圖片優先、否則文字）；或將圖片 / 影片**拖曳到視窗放開**即傳出。
+- **開機自動啟動**（macOS / Windows）：首頁右上齒輪 → 設定中可切換「開機自動啟動」，登入系統時自動開啟 App。macOS 透過 `SMAppService`、Windows 透過登錄機碼實作。
 - **單一程式碼庫**：macOS / iOS / Windows 共用同一份 Flutter 程式碼。
 - **可擴展架構**：傳輸層 / 發現層 / 資料模型以介面抽象，未來可擴展「跨網路雲端中繼」而不動既有結構。
 
@@ -32,6 +33,7 @@ lib/
 ├── app_controller.dart             中央狀態：串起身分 / 發現 / 傳輸 / 剪貼簿
 ├── core/
 │   ├── identity.dart               裝置穩定識別碼與名稱（持久化）
+│   ├── autostart.dart              開機自啟動（macOS SMAppService / Windows 登錄機碼）
 │   └── models.dart                 DeviceInfo / TransferEnvelope / ReceivedItem
 ├── discovery/
 │   ├── discovery.dart              發現服務介面
@@ -67,7 +69,8 @@ flutter run            # 桌面或已連接的裝置
 ### 平台設定
 
 - **iOS** `Info.plist`：本地網路 / Bonjour 服務、相簿讀取（`NSPhotoLibraryUsageDescription`）與相簿寫入（`NSPhotoLibraryAddUsageDescription`）權限；Podfile `platform :ios, '13.0'`。
-- **macOS** entitlements：network server / client、檔案存取（拖曳進來的檔案以 user-selected 權限讀取）。
+- **macOS** entitlements：network server / client、檔案存取（拖曳進來的檔案以 user-selected 權限讀取）；部署目標 `macOS 13.0`（開機自啟動 `SMAppService` 需求），`MainFlutterWindow.swift` 以 `easy_clipboard/autostart` method channel 處理自啟動。開機自啟動需 App 經過簽署才會生效。
+- **Windows** 開機自啟動：`win32_registry` 寫入 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`。
 
 ## 開發
 

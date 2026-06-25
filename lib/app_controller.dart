@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:gal/gal.dart';
 
 import 'clipboard/clipboard_service.dart';
@@ -12,7 +12,7 @@ import 'transport/lan_transport.dart';
 import 'transport/transport.dart';
 
 /// App 的中央狀態與服務協調者。把身分、發現、傳輸、剪貼簿串起來。
-class AppController extends ChangeNotifier {
+class AppController extends ChangeNotifier with WidgetsBindingObserver {
   final DiscoveryService _discovery = NsdDiscovery();
   final ClipboardService clipboard = ClipboardService();
 
@@ -46,8 +46,21 @@ class AppController extends ChangeNotifier {
       notifyListeners();
     });
 
+    WidgetsBinding.instance.addObserver(this);
+
     ready = true;
     notifyListeners();
+  }
+
+  /// App 回到前景時重發通告並重啟探索。
+  ///
+  /// 解決 mDNS 單向探索失效:iOS 進背景會停止回應查詢,對端(尤其 macOS 的被動
+  /// 探索)會抓不到本機;回前景重新 register/discovery 可讓雙方重新看到彼此。
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && ready) {
+      _discovery.refresh();
+    }
   }
 
   /// 嘗試在一段埠範圍內啟動接收端,回傳實際使用的埠。
@@ -179,6 +192,7 @@ class AppController extends ChangeNotifier {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _discovery.stop();
     _transport?.stop();
     super.dispose();

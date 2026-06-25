@@ -16,9 +16,13 @@ class NsdDiscovery implements DiscoveryService {
   nsd.Registration? _registration;
   nsd.Discovery? _discovery;
   String? _localId;
+  DeviceInfo? _local;
+  void Function(List<DeviceInfo>)? _onChanged;
+  bool _refreshing = false;
 
   @override
   Future<void> register(DeviceInfo local) async {
+    _local = local;
     _localId = local.id;
     _registration = await nsd.register(
       nsd.Service(
@@ -36,6 +40,7 @@ class NsdDiscovery implements DiscoveryService {
 
   @override
   Future<void> start(void Function(List<DeviceInfo>) onChanged) async {
+    _onChanged = onChanged;
     final discovery = await nsd.startDiscovery(serviceType, autoResolve: true);
     _discovery = discovery;
     discovery.addListener(() {
@@ -46,6 +51,32 @@ class NsdDiscovery implements DiscoveryService {
           .toList();
       onChanged(devices);
     });
+  }
+
+  @override
+  Future<void> refresh() async {
+    if (_refreshing) return;
+    _refreshing = true;
+    try {
+      // 重發通告:unregister 後再 register 一次,讓對端的被動探索補抓到本機。
+      final local = _local;
+      if (local != null) {
+        final r = _registration;
+        _registration = null;
+        if (r != null) await nsd.unregister(r);
+        await register(local);
+      }
+      // 重啟瀏覽:重新發出查詢,補抓初次可能漏掉的對端。
+      final onChanged = _onChanged;
+      if (onChanged != null) {
+        final d = _discovery;
+        _discovery = null;
+        if (d != null) await nsd.stopDiscovery(d);
+        await start(onChanged);
+      }
+    } finally {
+      _refreshing = false;
+    }
   }
 
   @override

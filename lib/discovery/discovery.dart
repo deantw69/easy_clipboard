@@ -11,6 +11,12 @@ abstract class DiscoveryService {
   /// 開始瀏覽其他裝置。透過 [onChanged] 回報目前可見的裝置清單(已去除本機)。
   Future<void> start(void Function(List<DeviceInfo> devices) onChanged);
 
+  /// 重新廣播本機並重啟瀏覽。
+  ///
+  /// 用於 App 回到前景 / 網路變動後:iOS 進背景會停止回應 mDNS 查詢,導致對端
+  /// 在被動探索下抓不到本機;回前景時重發通告並重啟探索可修復單向探索失效。
+  Future<void> refresh();
+
   /// 停止瀏覽並取消廣播。
   Future<void> stop();
 }

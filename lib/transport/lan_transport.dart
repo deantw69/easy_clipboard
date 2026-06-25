@@ -86,7 +86,7 @@ class LanTransport implements Transport {
     final env = _decodeEnvelope(req);
     if (env == null) return Response(400, body: 'missing envelope');
 
-    if (env.kind == PayloadKind.clipboardText) {
+    if (env.kind == PayloadKind.clipboardText || env.kind == PayloadKind.url) {
       final text = await req.readAsString();
       onReceived(ReceivedItem(envelope: env, text: text));
     } else {
@@ -153,6 +153,25 @@ class LanTransport implements Transport {
     await _dio.post(
       _url(target, 'clipboard'),
       data: text,
+      options: Options(
+        headers: {_envelopeHeader: _encodeEnvelope(env)},
+        contentType: 'text/plain; charset=utf-8',
+      ),
+    );
+  }
+
+  @override
+  Future<void> sendUrl(DeviceInfo target, String url) async {
+    final env = TransferEnvelope(
+      id: const Uuid().v4(),
+      kind: PayloadKind.url,
+      senderDeviceId: _local!.id,
+      timestamp: DateTime.now(),
+      mime: 'text/uri-list',
+    );
+    await _dio.post(
+      _url(target, 'clipboard'),
+      data: url,
       options: Options(
         headers: {_envelopeHeader: _encodeEnvelope(env)},
         contentType: 'text/plain; charset=utf-8',

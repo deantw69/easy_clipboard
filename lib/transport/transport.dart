@@ -17,6 +17,9 @@ abstract class Transport {
   /// 傳送剪貼簿純文字。
   Future<void> sendClipboardText(DeviceInfo target, String text);
 
+  /// 傳送網址。接收端會詢問是否在瀏覽器開啟。
+  Future<void> sendUrl(DeviceInfo target, String url);
+
   /// 傳送剪貼簿圖片(PNG 位元組)。
   Future<void> sendClipboardImage(DeviceInfo target, List<int> pngBytes);
 

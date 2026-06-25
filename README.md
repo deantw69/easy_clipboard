@@ -10,6 +10,7 @@
 - **剪貼簿互傳**：讀取本機剪貼簿（文字 / 圖片）傳到目標裝置；文字接收端自動寫入系統剪貼簿。
 - **圖片由接收方決定**：收到圖片（剪貼簿圖片或圖片檔）時，接收端跳出預覽，由本機自行選擇「複製到剪貼簿」或「儲存」（桌面：在 Finder / 檔案總管顯示；iOS：存進相簿），傳送端不再代為決定。
 - **iOS 收影片存相簿**：iPhone 收到的影片直接存進系統相簿，而非僅留在 App 目錄。
+- **iOS 系統分享選單**：在其他 App（相簿、Safari、Instagram 等）點「分享」即可選 **easy_clipboard**，把**圖片 / 文字 / 網址**直接送到上次使用的裝置（離線時跳裝置選單讓你選）。網址在接收端會詢問是否用瀏覽器開啟。透過 iOS Share Extension + App Group 實作。
 - **清除收到的內容**：傳輸頁「收到的內容」可一鍵清除，刪除暫存於本機的檔案釋放容量（含前次啟動殘留的檔），已存進相簿者不受影響。
 - **桌面快捷操作**（macOS / Windows）：在傳輸頁按 **⌘/Ctrl + V** 直接傳出目前剪貼簿（圖片優先、否則文字）；或將圖片 / 影片**拖曳到視窗放開**即傳出。
 - **開機自動啟動**（macOS / Windows）：首頁右上齒輪 → 設定中可切換「開機自動啟動」，登入系統時自動開啟 App。macOS 透過 `SMAppService`、Windows 透過登錄機碼實作。
@@ -35,6 +36,7 @@ lib/
 ├── core/
 │   ├── identity.dart               裝置穩定識別碼與名稱（持久化）
 │   ├── autostart.dart              開機自啟動（macOS SMAppService / Windows 登錄機碼）
+│   ├── share_handler.dart          iOS：接收系統分享選單傳入的內容並送出（receive_sharing_intent）
 │   └── models.dart                 DeviceInfo / TransferEnvelope / ReceivedItem
 ├── discovery/
 │   ├── discovery.dart              發現服務介面
@@ -70,6 +72,7 @@ flutter run            # 桌面或已連接的裝置
 ### 平台設定
 
 - **iOS** `Info.plist`：本地網路 / Bonjour 服務、相簿讀取（`NSPhotoLibraryUsageDescription`）與相簿寫入（`NSPhotoLibraryAddUsageDescription`）權限；Podfile `platform :ios, '13.0'`。
+- **iOS 分享選單**：另有 `Share Extension` target（自包含原生 Swift，不依賴 Flutter），與主 App 共用 App Group `group.com.philio.easyClipboard`；擴充把內容寫進 App Group 後以 URL scheme `ShareMedia-com.philio.easyClipboard` 喚醒主 App，主 App 端以 `receive_sharing_intent` 讀取。設定步驟見 [docs/ios-share-extension-setup.md](docs/ios-share-extension-setup.md)。
 - **macOS** entitlements：network server / client、檔案存取（拖曳進來的檔案以 user-selected 權限讀取）；部署目標 `macOS 13.0`（開機自啟動 `SMAppService` 需求），`MainFlutterWindow.swift` 以 `easy_clipboard/autostart` method channel 處理自啟動。開機自啟動需 App 經過簽署才會生效。
 - **Windows** 開機自啟動：`win32_registry` 寫入 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`。
 

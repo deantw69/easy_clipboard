@@ -1,7 +1,8 @@
 import 'dart:io';
 
 /// 傳輸內容的種類。第一版支援檔案(圖片/影片/任意檔)與剪貼簿(文字/圖片)。
-enum PayloadKind { file, clipboardText, clipboardImage }
+/// [url] 為網址,接收端會詢問是否在瀏覽器開啟(主要來自 iOS 分享選單)。
+enum PayloadKind { file, clipboardText, clipboardImage, url }
 
 /// 區網上的一台裝置。
 ///
@@ -94,6 +95,18 @@ class TransferEnvelope {
         sizeBytes: (j['sizeBytes'] as num?)?.toInt(),
         mime: j['mime'] as String?,
       );
+}
+
+/// 從系統分享選單(iOS Share Extension)傳入、待送出的一筆內容。
+enum SharedKind { image, text, url }
+
+class SharedPayload {
+  final SharedKind kind;
+
+  /// image:本機檔案路徑;text / url:內容本身。
+  final String value;
+
+  const SharedPayload(this.kind, this.value);
 }
 
 /// 一次傳入(接收)的紀錄,供 UI 顯示。

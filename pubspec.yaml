@@ -49,6 +49,11 @@ dependencies:
   desktop_drop: ^0.6.0
   device_info_plus: ^11.2.0
   win32_registry: ^2.0.0
+  # iOS 分享選單(Share Extension)接入,送出端用。1.8.x 仍提供 CocoaPods podspec;
+  # 1.9.0 改為 SPM-only,本專案用 CocoaPods 故固定在 1.8.1。
+  receive_sharing_intent: 1.8.1
+  # 接收端收到網址時開啟瀏覽器用。
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:

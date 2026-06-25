@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../app_controller.dart';
 import '../core/autostart.dart';
@@ -282,6 +283,185 @@ class _DesktopShortcuts extends StatelessWidget {
   }
 }
 
+// ---- 系統分享選單(iOS Share Extension)送出流程 ----
+
+/// 處理一批從系統分享進來的內容:先嘗試自動送上次裝置,找不到再跳裝置選單,
+/// 選定後依序送出。
+Future<void> runShareFlow(
+    BuildContext context, AppController c, List<SharedPayload> payloads) async {
+  DeviceInfo? target;
+  if (c.lastTargetId != null) {
+    target = await _resolveLastTargetWithDialog(context, c);
+  }
+  if (!context.mounted) return;
+  target ??= await showShareTargetPicker(context, payloads);
+  if (target == null || !context.mounted) return;
+  await _sendSharedBatch(context, c, target, payloads);
+}
+
+/// 顯示「搜尋上次裝置中」對話框,同時在背景輪詢等該裝置上線;找到回傳,逾時回 null。
+Future<DeviceInfo?> _resolveLastTargetWithDialog(
+    BuildContext context, AppController c) async {
+  final future = c.resolveLastTarget();
+  showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const AlertDialog(
+      content: Row(
+        children: [
+          SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2)),
+          SizedBox(width: 16),
+          Expanded(child: Text('搜尋上次傳送的裝置…')),
+        ],
+      ),
+    ),
+  );
+  final target = await future;
+  if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
+  return target;
+}
+
+/// 跳出裝置選單(隨探索即時更新),讓使用者選擇要把分享內容送到哪台。
+Future<DeviceInfo?> showShareTargetPicker(
+    BuildContext context, List<SharedPayload> payloads) {
+  return showModalBottomSheet<DeviceInfo>(
+    context: context,
+    showDragHandle: true,
+    builder: (ctx) => Consumer<AppController>(
+      builder: (ctx, c, _) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: Text('傳送${_sharedSummary(payloads)}到…',
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.bold)),
+            ),
+            if (c.devices.isEmpty)
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 8, 16, 24),
+                child: Row(
+                  children: [
+                    SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2)),
+                    SizedBox(width: 12),
+                    Expanded(child: Text('搜尋附近裝置… 確認在同一個 Wi-Fi')),
+                  ],
+                ),
+              )
+            else
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    for (final d in c.devices)
+                      ListTile(
+                        leading: const Icon(Icons.devices),
+                        title: Text(d.name),
+                        subtitle: Text('${d.platform} · ${d.host}'),
+                        onTap: () => Navigator.pop(ctx, d),
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+String _sharedSummary(List<SharedPayload> payloads) {
+  if (payloads.length > 1) return '${payloads.length} 個項目';
+  switch (payloads.first.kind) {
+    case SharedKind.image:
+      return '圖片';
+    case SharedKind.text:
+      return '文字';
+    case SharedKind.url:
+      return '網址';
+  }
+}
+
+Future<void> _sendSharedBatch(BuildContext context, AppController c,
+    DeviceInfo target, List<SharedPayload> payloads) async {
+  showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const AlertDialog(
+      content: Row(
+        children: [
+          SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2)),
+          SizedBox(width: 16),
+          Expanded(child: Text('傳送中…')),
+        ],
+      ),
+    ),
+  );
+  String? error;
+  try {
+    for (final p in payloads) {
+      await c.sendShared(target, p);
+    }
+  } catch (e) {
+    error = '$e';
+  } finally {
+    if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
+  }
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+          content: Text(error == null
+              ? '已傳送到 ${target.name}'
+              : '傳送失敗:$error')),
+    );
+  }
+}
+
+/// 接收方:收到網址時詢問是否在瀏覽器開啟。
+Future<void> showReceivedUrlDialog(BuildContext context, String url) async {
+  await showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('收到網址'),
+      content: Text(url),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.pop(ctx);
+            Clipboard.setData(ClipboardData(text: url));
+          },
+          child: const Text('複製'),
+        ),
+        TextButton(
+          onPressed: () async {
+            Navigator.pop(ctx);
+            final uri = Uri.tryParse(url);
+            if (uri != null) {
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            }
+          },
+          child: const Text('在瀏覽器開啟'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('關閉'),
+        ),
+      ],
+    ),
+  );
+}
+
 /// 接收方:收到圖片時跳出預覽,由本機決定複製到剪貼簿或儲存。
 Future<void> showReceivedImageDialog(
     BuildContext context, ReceivedItem item, AppController c) async {
@@ -438,6 +618,17 @@ class _ReceivedTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final env = item.envelope;
+    if (env.kind == PayloadKind.url) {
+      return ListTile(
+        leading: const Icon(Icons.link),
+        title: const Text('收到網址'),
+        subtitle: Text(item.text ?? '',
+            maxLines: 2, overflow: TextOverflow.ellipsis),
+        onTap: item.text == null
+            ? null
+            : () => showReceivedUrlDialog(context, item.text!),
+      );
+    }
     if (env.kind == PayloadKind.clipboardText) {
       return ListTile(
         leading: const Icon(Icons.text_snippet),

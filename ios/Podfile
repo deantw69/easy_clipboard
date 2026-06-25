@@ -34,6 +34,13 @@ target 'Runner' do
   target 'RunnerTests' do
     inherit! :search_paths
   end
+
+  # iOS 分享選單擴充。
+  # ⚠️ 必須先在 Xcode 建立名為 'Share Extension' 的 target,再「取消下面三行註解」,
+  # 然後執行 pod install。否則 pod install 會找不到 target 而失敗。
+  target 'Share Extension' do
+    inherit! :search_paths
+  end
 end
 
 post_install do |installer|

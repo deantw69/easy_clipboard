@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:gal/gal.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 import 'clipboard/clipboard_service.dart';
 import 'core/identity.dart';
@@ -27,11 +29,19 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   /// 收到圖片時由 UI 設定:跳出預覽,讓接收方決定要複製到剪貼簿或儲存。
   Future<void> Function(ReceivedItem item)? onImageReceived;
 
+  /// 收到網址時由 UI 設定:詢問是否在瀏覽器開啟。
+  Future<void> Function(String url)? onUrlReceived;
+
+  /// 上次傳送的目標裝置 id(持久化),分享時優先自動送到這台。
+  String? _lastTargetId;
+  String? get lastTargetId => _lastTargetId;
+
   DeviceInfo? get local => _local;
   bool get isDesktop =>
       Platform.isMacOS || Platform.isWindows || Platform.isLinux;
 
   Future<void> init() async {
+    _lastTargetId = await _loadLastTarget();
     final identity = await Identity.load();
     final port = await _bindTransport(identity);
     _local = DeviceInfo.local(
@@ -85,7 +95,13 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> _onReceived(ReceivedItem item) async {
     final env = item.envelope;
-    if (env.kind == PayloadKind.clipboardText) {
+    if (env.kind == PayloadKind.url) {
+      // 網址:寫入清單並交給 UI 詢問是否在瀏覽器開啟。
+      received.insert(0, item);
+      notifyListeners();
+      if (item.text != null) await onUrlReceived?.call(item.text!);
+      return;
+    } else if (env.kind == PayloadKind.clipboardText) {
       if (item.text != null) await clipboard.writeText(item.text!);
     } else if (_isImage(env)) {
       // 圖片一律交給接收方決定:跳預覽,選複製到剪貼簿或儲存。
@@ -183,6 +199,77 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       return;
     }
     _setStatus('剪貼簿沒有可傳送的內容');
+  }
+
+  // ---- 系統分享選單(iOS Share Extension) ----
+
+  /// 把一筆從系統分享進來的內容送到 [target],成功後記住此目標裝置。
+  Future<void> sendShared(DeviceInfo target, SharedPayload payload) async {
+    switch (payload.kind) {
+      case SharedKind.image:
+        await _transport!
+            .sendFile(target, payload.value, mime: _guessImageMime(payload.value));
+        _setStatus('已傳送圖片到 ${target.name}');
+      case SharedKind.text:
+        await _transport!.sendClipboardText(target, payload.value);
+        _setStatus('已傳送文字到 ${target.name}');
+      case SharedKind.url:
+        await _transport!.sendUrl(target, payload.value);
+        _setStatus('已傳送網址到 ${target.name}');
+    }
+    await _saveLastTarget(target.id);
+  }
+
+  /// 嘗試解析「上次傳送的目標裝置」。剛從分享冷啟動時 mDNS 尚未掃到裝置,
+  /// 因此在 [timeout] 內輪詢等待該裝置出現且可連線;逾時回傳 null,由 UI 跳選單。
+  Future<DeviceInfo?> resolveLastTarget(
+      {Duration timeout = const Duration(seconds: 6)}) async {
+    final id = _lastTargetId;
+    if (id == null) return null;
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      for (final d in devices) {
+        if (d.id == id && d.isReachable) return d;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    }
+    return null;
+  }
+
+  String? _guessImageMime(String path) {
+    const map = {
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'heic': 'image/heic',
+      'heif': 'image/heif',
+      'webp': 'image/webp',
+    };
+    return map[p.extension(path).replaceFirst('.', '').toLowerCase()];
+  }
+
+  Future<File> _lastTargetFile() async {
+    final dir = await getApplicationSupportDirectory();
+    return File(p.join(dir.path, 'last_target'));
+  }
+
+  Future<String?> _loadLastTarget() async {
+    try {
+      final f = await _lastTargetFile();
+      if (await f.exists()) {
+        final s = (await f.readAsString()).trim();
+        if (s.isNotEmpty) return s;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Future<void> _saveLastTarget(String id) async {
+    _lastTargetId = id;
+    try {
+      await (await _lastTargetFile()).writeAsString(id);
+    } catch (_) {}
   }
 
   /// 清除收到的內容:刪除已落地的暫存檔並清空清單,釋放裝置容量。

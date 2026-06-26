@@ -19,8 +19,16 @@ Color _memoColorOf(Memo memo) =>
     memo.colorValue != null ? Color(memo.colorValue!) : _defaultMemoColor;
 
 /// 備忘錄分頁:便利貼風格的列表。點卡片編輯、勾選待辦、右上角新增、可拖曳排序。
-class MemosPage extends StatelessWidget {
+class MemosPage extends StatefulWidget {
   const MemosPage({super.key});
+
+  @override
+  State<MemosPage> createState() => _MemosPageState();
+}
+
+class _MemosPageState extends State<MemosPage> {
+  // 收合狀態(只存本機,不同步)。
+  final Set<String> _collapsed = {};
 
   @override
   Widget build(BuildContext context) {
@@ -58,117 +66,230 @@ class MemosPage extends StatelessWidget {
                 ids.insert(newIndex, moved);
                 store.reorder(ids);
               },
-              itemBuilder: (_, i) => ReorderableDelayedDragStartListener(
-                key: ValueKey(memos[i].id),
-                index: i,
-                child: _MemoCard(memo: memos[i]),
-              ),
+              itemBuilder: (_, i) {
+                final memo = memos[i];
+                return ReorderableDelayedDragStartListener(
+                  key: ValueKey(memo.id),
+                  index: i,
+                  child: _MemoCard(
+                    memo: memo,
+                    collapsed: _collapsed.contains(memo.id),
+                    onToggleCollapse: () => setState(() {
+                      if (!_collapsed.add(memo.id)) _collapsed.remove(memo.id);
+                    }),
+                  ),
+                );
+              },
             ),
     );
   }
 }
 
 /// 便利貼卡片:顯示文字與待辦勾選;點卡片進編輯。
+/// 向左滑露出固定寬度的刪除鈕(仿 Line),點紅色區才跳確認;右上角可收合/展開。
 class _MemoCard extends StatelessWidget {
   final Memo memo;
-  const _MemoCard({super.key, required this.memo});
+  final bool collapsed;
+  final VoidCallback onToggleCollapse;
+  const _MemoCard({
+    required this.memo,
+    required this.collapsed,
+    required this.onToggleCollapse,
+  });
 
   @override
   Widget build(BuildContext context) {
     final store = context.read<MemoStore>();
-    return Card(
-      color: _memoColorOf(memo),
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      child: InkWell(
-        onTap: () => _openEditor(context, store, memo),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
+    final hasBody = memo.todos.isNotEmpty;
+    final hasText = memo.text.trim().isNotEmpty;
+    return _SwipeRevealDelete(
+      onDelete: () async {
+        final ok = await _confirmDelete(context);
+        if (ok) store.delete(memo.id);
+        return ok;
+      },
+      child: Card(
+        color: _memoColorOf(memo),
+        margin: const EdgeInsets.symmetric(vertical: 6),
+        child: InkWell(
+          onTap: () => _openEditor(context, store, memo),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 標題列 + 收合/展開鈕(原刪除鈕位置)。
+                Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (memo.text.trim().isNotEmpty)
-                      Text(
-                        memo.text,
-                        style: const TextStyle(
-                            fontSize: 15, color: Colors.black87),
-                      ),
-                    for (final todo in memo.todos)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Row(
-                          children: [
-                            // 只有 checkbox 可點選勾選。
-                            InkWell(
-                              borderRadius: BorderRadius.circular(4),
-                              onTap: () => store.toggleTodo(memo.id, todo.id),
-                              child: Padding(
-                                padding: const EdgeInsets.all(2),
-                                child: Icon(
-                                  todo.done
-                                      ? Icons.check_box
-                                      : Icons.check_box_outline_blank,
-                                  size: 20,
-                                  color: Colors.black54,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                todo.text,
-                                style: TextStyle(
-                                  color: Colors.black87,
-                                  decoration: todo.done
-                                      ? TextDecoration.lineThrough
-                                      : null,
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.copy,
-                                  size: 18, color: Colors.black45),
-                              tooltip: '複製',
-                              visualDensity: VisualDensity.compact,
-                              onPressed: () async {
-                                await Clipboard.setData(
-                                    ClipboardData(text: todo.text));
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('已複製')),
-                                  );
-                                }
-                              },
-                            ),
-                          ],
+                    Expanded(
+                      child: hasText
+                          ? Text(
+                              memo.text,
+                              style: const TextStyle(
+                                  fontSize: 15, color: Colors.black87),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                    if (hasBody)
+                      SizedBox(
+                        height: 22,
+                        child: IconButton(
+                          icon: Icon(
+                            collapsed ? Icons.expand_more : Icons.expand_less,
+                            size: 20,
+                            color: Colors.black45,
+                          ),
+                          tooltip: collapsed ? '展開' : '收合',
+                          padding: EdgeInsets.zero,
+                          visualDensity: VisualDensity.compact,
+                          constraints:
+                              const BoxConstraints.tightFor(width: 28),
+                          onPressed: onToggleCollapse,
                         ),
                       ),
                   ],
                 ),
-              ),
-              // 刪除鈕高度對齊左側標題首行。
-              SizedBox(
-                height: 22,
-                child: IconButton(
-                  icon: const Icon(Icons.delete_outline,
-                      size: 20, color: Colors.black45),
-                  tooltip: '刪除',
-                  padding: EdgeInsets.zero,
-                  visualDensity: VisualDensity.compact,
-                  constraints: const BoxConstraints.tightFor(width: 36),
-                  onPressed: () async {
-                    final ok = await _confirmDelete(context);
-                    if (ok) store.delete(memo.id);
-                  },
-                ),
-              ),
-            ],
+                if (!collapsed)
+                  for (final todo in memo.todos)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Row(
+                        children: [
+                          // 只有 checkbox 可點選勾選。
+                          InkWell(
+                            borderRadius: BorderRadius.circular(4),
+                            onTap: () => store.toggleTodo(memo.id, todo.id),
+                            child: Padding(
+                              padding: const EdgeInsets.all(2),
+                              child: Icon(
+                                todo.done
+                                    ? Icons.check_box
+                                    : Icons.check_box_outline_blank,
+                                size: 20,
+                                color: Colors.black54,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              todo.text,
+                              style: TextStyle(
+                                color: Colors.black87,
+                                decoration: todo.done
+                                    ? TextDecoration.lineThrough
+                                    : null,
+                              ),
+                            ),
+                          ),
+                          // 複製鈕緊湊,右側不留多餘空白。
+                          IconButton(
+                            icon: const Icon(Icons.copy,
+                                size: 18, color: Colors.black45),
+                            tooltip: '複製',
+                            padding: EdgeInsets.zero,
+                            visualDensity: VisualDensity.compact,
+                            constraints:
+                                const BoxConstraints.tightFor(width: 24),
+                            onPressed: () async {
+                              await Clipboard.setData(
+                                  ClipboardData(text: todo.text));
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('已複製')),
+                                );
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 向左滑露出固定寬度的紅色刪除鈕;點紅色區才觸發 [onDelete](回傳是否已刪除)。
+/// 紅色鈕與卡片同高同圓角貼齊,避免露出多餘白邊。
+class _SwipeRevealDelete extends StatefulWidget {
+  final Widget child;
+  final Future<bool> Function() onDelete;
+  const _SwipeRevealDelete({required this.child, required this.onDelete});
+
+  @override
+  State<_SwipeRevealDelete> createState() => _SwipeRevealDeleteState();
+}
+
+class _SwipeRevealDeleteState extends State<_SwipeRevealDelete>
+    with SingleTickerProviderStateMixin {
+  static const double _revealWidth = 76;
+  late final AnimationController _ctrl = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 180));
+  Animation<double>? _anim;
+  double _dx = 0;
+
+  void _animateTo(double target) {
+    _anim = Tween<double>(begin: _dx, end: target).animate(
+        CurvedAnimation(parent: _ctrl, curve: Curves.easeOut))
+      ..addListener(() => setState(() => _dx = _anim!.value));
+    _ctrl.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleDelete() async {
+    final deleted = await widget.onDelete();
+    if (!deleted && mounted) _animateTo(0); // 取消則收回
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        // 紅色刪除鈕(與卡片相同 vertical margin / 圓角,貼齊不留白邊)。
+        // 收合狀態(_dx==0)不繪製,避免卡片右側圓角透出紅色。
+        if (_dx != 0)
+        Positioned.fill(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: GestureDetector(
+                onTap: _handleDelete,
+                child: Container(
+                  width: _revealWidth,
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Icon(Icons.delete, color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+        ),
+        GestureDetector(
+          onHorizontalDragUpdate: (d) => setState(() {
+            _dx = (_dx + d.delta.dx).clamp(-_revealWidth, 0.0);
+          }),
+          onHorizontalDragEnd: (_) =>
+              _animateTo(_dx < -_revealWidth / 2 ? -_revealWidth : 0),
+          child: Transform.translate(
+            offset: Offset(_dx, 0),
+            child: widget.child,
+          ),
+        ),
+      ],
     );
   }
 }

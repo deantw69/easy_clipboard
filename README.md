@@ -12,6 +12,7 @@
 - **iOS 收影片存相簿**：iPhone 收到的影片直接存進系統相簿，而非僅留在 App 目錄。
 - **iOS 系統分享選單**：在其他 App（相簿、Safari、Instagram 等）點「分享」即可選 **easy_clipboard**，把**圖片 / 文字 / 網址**直接送到上次使用的裝置（離線時跳裝置選單讓你選）。網址在接收端會詢問是否用瀏覽器開啟。透過 iOS Share Extension + App Group 實作。
 - **清除收到的內容**：傳輸頁「收到的內容」可一鍵清除，刪除暫存於本機的檔案釋放容量（含前次啟動殘留的檔），已存進相簿者不受影響。
+- **跨裝置備忘錄**：獨立「備忘錄」分頁（底部分頁切換），便利貼風格列出小備忘錄，支援純文字與待辦勾選。內容本機持久化（`memos.json`），同一區網的裝置自動雙向同步（Last-Write-Wins + 刪除墓碑）；不需 server，iPhone 隨身帶著即可作為 macOS ↔ Windows 的同步橋樑。
 - **桌面快捷操作**（macOS / Windows）：在傳輸頁按 **⌘/Ctrl + V** 直接傳出目前剪貼簿（圖片優先、否則文字）；或將圖片 / 影片**拖曳到視窗放開**即傳出。
 - **開機自動啟動**（macOS / Windows）：首頁右上齒輪 → 設定中可切換「開機自動啟動」，登入系統時自動開啟 App。macOS 透過 `SMAppService`、Windows 透過登錄機碼實作。
 - **單一程式碼庫**：macOS / iOS / Windows 共用同一份 Flutter 程式碼。
@@ -46,7 +47,11 @@ lib/
 │   └── lan_transport.dart          區網直傳（shelf server + dio 串流）
 ├── clipboard/
 │   └── clipboard_service.dart      系統剪貼簿讀寫（super_clipboard）
+├── memos/
+│   └── memo_store.dart             備忘錄資料層：Memo / MemoTodo 模型、memos.json 持久化、LWW 合併
 └── features/
+    ├── root_page.dart              底部分頁殼（剪貼簿 / 備忘錄）
+    ├── memos_page.dart             備忘錄分頁（便利貼列表、待辦勾選、新增 / 編輯 / 刪除）
     └── home_page.dart              HomePage（裝置清單）＋ DevicePage（傳送 / 接收 / 桌面快捷與拖曳）
 ```
 
@@ -57,6 +62,7 @@ lib/
 - `GET /info` → 回傳本機裝置 JSON（連線前確認）
 - `POST /file` → header `x-envelope` 帶 metadata，body 為檔案串流
 - `POST /clipboard` → header `x-envelope` 帶 metadata，body 為文字 / PNG 位元組
+- `POST /memos/sync` → body 為發起方完整備忘錄清單 JSON；接收端合併（LWW）後回傳自己合併後的完整清單，一次往返雙方收斂
 
 ## 開始使用
 

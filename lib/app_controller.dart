@@ -11,6 +11,7 @@ import 'core/identity.dart';
 import 'core/models.dart';
 import 'discovery/discovery.dart';
 import 'discovery/nsd_discovery.dart';
+import 'memos/memo_store.dart';
 import 'transport/lan_transport.dart';
 import 'transport/transport.dart';
 
@@ -18,6 +19,11 @@ import 'transport/transport.dart';
 class AppController extends ChangeNotifier with WidgetsBindingObserver {
   final DiscoveryService _discovery = NsdDiscovery();
   final ClipboardService clipboard = ClipboardService();
+
+  /// 備忘錄資料層(由 main 的 MultiProvider 建立後注入)。
+  final MemoStore memos;
+
+  AppController({required this.memos});
 
   Transport? _transport;
   DeviceInfo? _local;
@@ -56,7 +62,12 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     await _discovery.start((list) {
       devices = list;
       notifyListeners();
+      // 有裝置出現/變動時,順手同步備忘錄。
+      syncMemosWithAll();
     });
+
+    // 本地備忘錄變動時,立即推送到區網其他裝置。
+    memos.onLocalChange = () => syncMemosWithAll();
 
     WidgetsBinding.instance.addObserver(this);
 
@@ -64,12 +75,41 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     if (isDesktop) {
       _refreshTimer = Timer.periodic(
         const Duration(seconds: 15),
-        (_) => _discovery.refresh(),
+        (_) {
+          _discovery.refresh();
+          syncMemosWithAll();
+        },
       );
     }
 
     ready = true;
     notifyListeners();
+  }
+
+  // ---- 備忘錄同步 ----
+
+  bool _syncing = false;
+
+  /// 與目前可連線的所有裝置同步備忘錄(Last-Write-Wins)。
+  ///
+  /// 單一往返:送出本機完整清單,對方合併後回傳其清單,本機再合併。
+  /// 加 [_syncing] 旗標去抖,避免多個觸發點短時間內重複跑;離線/逾時忽略。
+  Future<void> syncMemosWithAll() async {
+    if (!ready || _syncing) return;
+    _syncing = true;
+    try {
+      final targets = devices.where((d) => d.isReachable).toList();
+      for (final d in targets) {
+        try {
+          final remote = await _transport!.syncMemos(d, memos.exportJson());
+          memos.mergeJson(remote);
+        } catch (_) {
+          // 單台離線/逾時不影響其餘裝置。
+        }
+      }
+    } finally {
+      _syncing = false;
+    }
   }
 
   /// App 回到前景時重發通告並重啟探索。
@@ -80,6 +120,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && ready) {
       _discovery.refresh();
+      syncMemosWithAll();
     }
   }
 
@@ -98,6 +139,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
           DeviceInfo.local(
               id: identity.deviceId, name: identity.deviceName, port: port),
           _onReceived,
+          onMemoSync: (incoming) async => memos.mergeJson(incoming),
         );
         _transport = t;
         return port;

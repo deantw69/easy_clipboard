@@ -32,10 +32,16 @@ class LanTransport implements Transport {
     receiveTimeout: const Duration(minutes: 30),
   ));
 
+  Future<String> Function(String incomingJson)? _onMemoSync;
+
   @override
   Future<void> start(
-      DeviceInfo local, void Function(ReceivedItem) onReceived) async {
+    DeviceInfo local,
+    void Function(ReceivedItem) onReceived, {
+    Future<String> Function(String incomingJson)? onMemoSync,
+  }) async {
     _local = local;
+    _onMemoSync = onMemoSync;
     final handler = const Pipeline()
         .addMiddleware(logRequests())
         .addHandler((req) => _route(req, onReceived));
@@ -45,6 +51,12 @@ class LanTransport implements Transport {
 
   Future<Response> _route(
       Request req, void Function(ReceivedItem) onReceived) async {
+    if (req.method == 'POST' && req.url.path == 'memos/sync') {
+      final cb = _onMemoSync;
+      if (cb == null) return Response(503, body: 'memo sync unavailable');
+      final merged = await cb(await req.readAsString());
+      return Response.ok(merged, headers: {'content-type': 'application/json'});
+    }
     if (req.method == 'GET' && req.url.path == 'info') {
       final l = _local!;
       return Response.ok(
@@ -201,6 +213,21 @@ class LanTransport implements Transport {
         contentType: 'image/png',
       ),
     );
+  }
+
+  @override
+  Future<String> syncMemos(DeviceInfo target, String localJson) async {
+    final res = await _dio.post(
+      _url(target, 'memos/sync'),
+      data: localJson,
+      options: Options(
+        contentType: 'application/json; charset=utf-8',
+        responseType: ResponseType.plain,
+        sendTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 10),
+      ),
+    );
+    return res.data as String;
   }
 
   @override

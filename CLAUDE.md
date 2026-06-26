@@ -1,5 +1,13 @@
 # easy_clipboard 專案慣例
 
+## 跨裝置備忘錄(Memo Sync)
+- 獨立「備忘錄」分頁,與剪貼簿功能在同一視窗以底部 `NavigationBar` 切換(`lib/features/root_page.dart`,`home:` 由 main 指向 `RootPage`)。
+- 資料層 `lib/memos/memo_store.dart`:`Memo`(id / text / todos / updatedAt / deleted)、`MemoTodo`、`MemoStore extends ChangeNotifier`。持久化為 appSupport 下的 `memos.json`(沿用 identity / last_target 的「檔案存 appSupport」pattern,不引資料庫)。
+- 同步為**雙向合併**(非一次性傳送):Last-Write-Wins 比 `updatedAt`(epoch ms),刪除用 `deleted=true` 墓碑保留避免復活。
+- 協定:HTTP `POST /memos/sync`(`lan_transport.dart`),body 為發起方完整清單 JSON,接收端 `mergeJson` 後回傳自己的完整清單,一次往返雙方收斂。transport 介面新增 `syncMemos` 與 `start(...onMemoSync)`。
+- 觸發點(`AppController.syncMemosWithAll`,`_syncing` 去抖):discovery onChanged、桌面 15 秒 timer、回前景、本地編輯(`MemoStore.onLocalChange`)。`mergeJson` 內**不可**再呼叫 `onLocalChange`,否則兩台無限互推。
+- iPhone 不需特殊處理,任兩台同網即合併,iPhone 隨身帶著自然成為 macOS↔Windows 橋樑。
+
 ## macOS 建置
 - 編譯 macOS release 版後，**一律**把產出的 `.app` 複製一份到使用者的下載資料夾，方便取用：
   ```bash

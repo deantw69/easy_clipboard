@@ -1,8 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../memos/memo_store.dart';
+
+/// 判斷待辦文字是否為網址(以 http(s):// 開頭)。
+bool _isUrl(String text) {
+  final t = text.trim();
+  if (!t.startsWith('http://') && !t.startsWith('https://')) return false;
+  final uri = Uri.tryParse(t);
+  return uri != null && uri.hasAuthority;
+}
+
+Future<void> _openUrl(String text) async {
+  final uri = Uri.tryParse(text.trim());
+  if (uri != null) {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+}
 
 /// 便利貼固定色票(淺色系)。第一個為預設黃。
 const Color _defaultMemoColor = Color(0xFFFFF8C4);
@@ -173,14 +190,32 @@ class _MemoCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 6),
                           Expanded(
-                            child: Text(
-                              todo.text,
-                              style: TextStyle(
-                                color: Colors.black87,
-                                decoration: todo.done
-                                    ? TextDecoration.lineThrough
-                                    : null,
-                              ),
+                            child: Builder(
+                              builder: (_) {
+                                final isUrl = _isUrl(todo.text);
+                                final baseStyle = TextStyle(
+                                  color:
+                                      isUrl ? Colors.blue.shade700 : Colors.black87,
+                                  decoration: todo.done
+                                      ? TextDecoration.lineThrough
+                                      : (isUrl
+                                          ? TextDecoration.underline
+                                          : null),
+                                  decorationColor:
+                                      isUrl ? Colors.blue.shade700 : null,
+                                );
+                                if (!isUrl) {
+                                  return Text(todo.text, style: baseStyle);
+                                }
+                                return Text.rich(
+                                  TextSpan(
+                                    text: todo.text,
+                                    style: baseStyle,
+                                    recognizer: TapGestureRecognizer()
+                                      ..onTap = () => _openUrl(todo.text),
+                                  ),
+                                );
+                              },
                             ),
                           ),
                           // 複製鈕緊湊,右側不留多餘空白。

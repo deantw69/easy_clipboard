@@ -10,6 +10,7 @@
 - `Memo` 另有 `colorValue`(ARGB,null=預設黃 `0xFFFFF8C4`)與 `sortKey`(排序鍵)兩欄,皆進 JSON 隨 LWW 同步。色票常數在 `memos_page.dart` 的 `kMemoColors`。
 - **排序看 `sortKey`(升冪),不是 `updatedAt`**:`visibleMemos` 先比 sortKey、相等再比 updatedAt 降冪(舊資料 sortKey 皆 0,維持新到舊)。`add()` 取最小 sortKey-1 置頂;拖曳由 `reorder(orderedIds)` 重指派並 touch。因此 `toggleTodo` 雖 touch updatedAt,**不會**改變列表順序。
 - 列表用 `ReorderableListView.builder` 拖曳排序;待辦只有 checkbox 用 `InkWell` 可點(整列不可點),待辦列尾端有緊湊複製鈕(貼齊右側內距)。
+- 待辦文字若為網址(`memos_page.dart` 的 `_isUrl`:以 `http(s)://` 開頭且 `Uri.hasAuthority`),改用 `Text.rich`+`TapGestureRecognizer` 顯示為藍字(`Colors.blue.shade700`)加同色底線,點擊以 `_openUrl`(`launchUrl` 外部瀏覽器)開啟。
 - 拖曳:`buildDefaultDragHandles: false` 關掉桌面預設的橫槓把手,每列包 `ReorderableDelayedDragStartListener` 改整列長按拖曳(桌面/手機一致);`proxyDecorator` 用透明 `Material`+圓角,浮起時只留卡片陰影不出現白邊。
 - 刪除:仿 Line,自製 `_SwipeRevealDelete`(非 `Dismissible`)。整列向左滑只露出固定寬度(76px)紅色刪除鈕(滑超過一半自動吸附),**點紅色區才**跳 confirm,取消則收回。紅色鈕與卡片同 `vertical margin(6)`/圓角(12)貼齊,且未滑動(`_dx==0`)時不繪製,避免卡片右側圓角透出紅色。水平拖曳與長按拖曳排序、卡片 `InkWell` 點擊編輯三者並存。
 - 收合:卡片右上角(原刪除鈕位置)為收合/展開鈕,僅有待辦時顯示;收合只隱藏待辦、保留標題。收合狀態存 `_MemosPageState._collapsed`(只存本機記憶體,**不持久化、不同步**)。標題列(文字+收合鈕)與待辦列分開,待辦列全寬使複製鈕貼齊右側。

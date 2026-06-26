@@ -4,27 +4,6 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>ShareMedia-$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-			</array>
-		</dict>
-	</array>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>用於在同一個 Wi-Fi 下尋找並傳送內容到你的其他裝置。</string>
-	<key>NSBonjourServices</key>
-	<array>
-		<string>_easyclip._tcp</string>
-	</array>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>用於選取要傳送到其他裝置的照片與影片。</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>用於將收到的照片與影片儲存到相簿。</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -43,9 +22,32 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>ShareMedia-$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_easyclip._tcp</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>用於在同一個 Wi-Fi 下尋找並傳送內容到你的其他裝置。</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>用於將收到的照片與影片儲存到相簿。</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>用於選取要傳送到其他裝置的照片與影片。</string>
+	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>
 	<dict>

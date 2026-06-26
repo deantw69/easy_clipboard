@@ -1,13 +1,22 @@
+import 'dart:async';
 import 'dart:io';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'alarm/alarm_services.dart';
+import 'alarm/alarm_sound_service.dart';
+import 'alarm/live_activity_service.dart';
+import 'alarm/menu_bar_service.dart';
+import 'alarm/notification_service.dart';
+import 'alarm/timer_repository.dart';
 import 'app_controller.dart';
 import 'core/desktop_tray_service.dart';
 import 'core/share_handler.dart';
 import 'features/home_page.dart';
 import 'features/root_page.dart';
+import 'firebase_options.dart';
 import 'memos/memo_store.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
@@ -17,10 +26,30 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await DesktopTrayService.ensureInitialized();
   final memoStore = MemoStore()..load();
+
+  // 鬧鐘(倒數計時)分頁:Firebase + 通知 + 選單列。
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  final notifications = NotificationService();
+  await notifications.init();
+  final menuBar = MenuBarService();
+  await menuBar.init();
+  final alarmServices = AlarmServices(
+    repository: TimerRepository(deviceId: alarmDeviceLabel()),
+    notifications: notifications,
+    alarm: AlarmSoundService(),
+    menuBar: menuBar,
+    liveActivity: LiveActivityService(),
+  );
+  // 通知權限放最後,不卡啟動流程。
+  unawaited(notifications.requestPermissions());
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: memoStore),
+        Provider<AlarmServices>.value(value: alarmServices),
         ChangeNotifierProvider<AppController>(create: (_) {
           final c = AppController(memos: memoStore);
           c.onImageReceived = (item) async {

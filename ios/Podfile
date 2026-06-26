@@ -1,5 +1,5 @@
-# super_native_extensions 需要 iOS 13 以上
-platform :ios, '13.0'
+# super_native_extensions 需 iOS 13;Firebase iOS SDK 需 iOS 15,取較高者。
+platform :ios, '15.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'

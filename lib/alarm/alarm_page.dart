@@ -1,0 +1,389 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import 'alarm_services.dart';
+import 'duration_picker.dart';
+import 'timer_state.dart';
+
+/// 鬧鐘分頁:顯示跨裝置共用倒數、設定時間、啟動 / 暫停 / 停止。
+/// 服務(Firestore / 通知 / 響鈴 / 動態島 / 選單列)由 [AlarmServices] Provider 提供。
+class AlarmPage extends StatefulWidget {
+  const AlarmPage({super.key});
+
+  @override
+  State<AlarmPage> createState() => _AlarmPageState();
+}
+
+class _AlarmPageState extends State<AlarmPage> with WidgetsBindingObserver {
+  late final AlarmServices _services;
+
+  StreamSubscription<({TimerState state, bool fromCache})>? _sub;
+  Timer? _ticker;
+
+  TimerState _state = TimerState.initial();
+
+  /// 記住上一次見到的 deadline,用來判斷是否需要重排通知。
+  DateTime? _scheduledFor;
+
+  /// 本輪是否已觸發前景「時間到」通知,避免重複。
+  bool _firedThisRound = false;
+
+  /// 用於顯示的「現在時間」,每秒更新。
+  DateTime _now = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    _services = context.read<AlarmServices>();
+    WidgetsBinding.instance.addObserver(this);
+    _sub = _services.repository
+        .watch()
+        .listen((e) => _onState(e.state, fromCache: e.fromCache));
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _onTick());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _sub?.cancel();
+    _ticker?.cancel();
+    // alarm / menuBar 為 App 生命週期共用單例(Provider 持有),此處不 dispose。
+    super.dispose();
+  }
+
+  /// 回到前景時重新同步 Live Activity。
+  /// iOS 的 Live Activity 只能在 App 前景 active 時「啟動」(`Activity.request`),
+  /// App 啟動瞬間 / 背景時收到的狀態變更可能起動失敗;前景復帰時補貼一次,
+  /// 確保動態島不會因為時機而漏顯示(其他平台 no-op)。
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _syncLiveActivity(_state, DateTime.now());
+    }
+  }
+
+  /// Firestore 狀態變更:更新畫面、重排本地通知、同步動態島。
+  ///
+  /// [fromCache] 為 true 表示此筆來自本機快取、尚未經伺服器確認。開機 / 重連時
+  /// Firestore 會先送快取的「舊狀態」(可能是關機前那輪 running、deadline 已過),
+  /// 不可據此觸發響鈴 / 通知 —— 等伺服器確認的最新狀態到了再決定(見下方觸發守衛)。
+  Future<void> _onState(TimerState state, {bool fromCache = false}) async {
+    // 只有「倒數中」才有需要排程通知的有效 deadline(暫停/閒置皆視為無)。
+    final prevDeadline =
+        _state.status == TimerStatus.running ? _state.deadline : null;
+    // 進來前是否正顯示「時間到」(running 且 deadline 已過)。用來判斷:若緊接著
+    // 收到別台同步來的 idle,很可能是要開「下一輪」——此時若本機在背景,保住 Activity
+    // 走 update(背景無法 request 新的),見下方 _syncLiveActivity 的 keepIdleActive。
+    final wasShowingDone = _state.status == TimerStatus.running &&
+        _state.deadline != null &&
+        !_state.deadline!.isAfter(DateTime.now());
+    setState(() => _state = state);
+    _updateMenuBar();
+
+    // 回到閒置(任一裝置按停止/重設)→ 先立即停止響鈴。放在最前面,
+    // 不要排在 notifications.cancelAll() 之後 —— 那個 await 在某些平台(macOS)
+    // 若變慢或拋例外,會讓後面的 alarm.stop() 沒被執行,造成響鈴停不掉(殘響)。
+    if (state.status == TimerStatus.idle) {
+      await _services.alarm.stop();
+    }
+
+    final now = DateTime.now();
+    final newDeadline =
+        state.status == TimerStatus.running ? state.deadline : null;
+
+    // deadline 變了(暫停 / 停止 / 加減時間 / 重新啟動)→ 取消舊的、視情況排新的。
+    if (newDeadline != prevDeadline || newDeadline != _scheduledFor) {
+      await _services.notifications.cancelAll();
+      _scheduledFor = null;
+      _firedThisRound = false;
+
+      if (newDeadline != null) {
+        // 新的倒數 deadline → 先停掉上一輪可能還在響的鈴。
+        await _services.alarm.stop();
+        final ok = await _services.notifications.scheduleAt(newDeadline);
+        if (ok) _scheduledFor = newDeadline;
+      }
+    }
+
+    // 倒數中但此刻已過期(極短倒數 / 減時間到 0)→ 立即觸發響鈴。
+    // 守衛(避免開機誤響/誤通知):
+    //  - !fromCache:只在伺服器確認過的狀態才觸發。開機先到的快取舊狀態(關機前
+    //    那輪 running、deadline 已過)不算數;真正的最新狀態(別裝置已停止/開新輪)
+    //    隨後會以伺服器 snapshot 送達,屆時不會是「已過期」就不會誤觸發。
+    //  - !_firedForDeadline:該 deadline 已被(任一裝置)響過(lastFiredAt 已記錄),
+    //    不重複響 —— 例如別裝置早已響過、本機開機才同步到的那輪。
+    if (state.status == TimerStatus.running &&
+        !_firedThisRound &&
+        !fromCache &&
+        !_firedForDeadline(state) &&
+        state.deadline != null &&
+        !state.deadline!.isAfter(now)) {
+      await _fireAlarm();
+      return; // _fireAlarm 會處理動態島
+    }
+
+    // 「時間到 → 別台同步來的 idle」且本機在背景時,保住 Activity(改 update 空白卡)而非
+    // end,讓緊接著的下一輪 running 能背景 update 貼出。前景時 request 可成功,照舊 end。
+    final inForeground =
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+    final keepIdleActive = state.status == TimerStatus.idle &&
+        wasShowingDone &&
+        !inForeground;
+    await _syncLiveActivity(state, now, keepIdleActive: keepIdleActive);
+  }
+
+  /// 依目前狀態同步 iOS 動態島(其他平台 no-op)。
+  /// [keepIdleActive] 為 true 時,idle 不 end 而是保住既有 Activity(見 _onState)。
+  Future<void> _syncLiveActivity(TimerState state, DateTime now,
+      {bool keepIdleActive = false}) async {
+    switch (state.status) {
+      case TimerStatus.running:
+        await _services.liveActivity.apply(
+          isPaused: false,
+          deadline: state.deadline,
+          remainingSeconds: state.remaining(now).inSeconds,
+          label: state.label,
+        );
+        break;
+      case TimerStatus.paused:
+        await _services.liveActivity.apply(
+          isPaused: true,
+          remainingSeconds: state.remaining(now).inSeconds,
+          label: state.label,
+        );
+        break;
+      case TimerStatus.idle:
+        if (keepIdleActive) {
+          await _services.liveActivity.applyIdle(label: state.label);
+        } else {
+          await _services.liveActivity.end(immediate: true);
+        }
+        break;
+    }
+  }
+
+  /// 每秒 tick:更新顯示;若前景中倒數歸零,觸發響鈴 + 通知。
+  Future<void> _onTick() async {
+    setState(() => _now = DateTime.now());
+    _updateMenuBar();
+
+    if (_state.isRunning &&
+        !_firedThisRound &&
+        _state.deadline != null &&
+        !_state.deadline!.isAfter(_now)) {
+      await _fireAlarm();
+    }
+  }
+
+  /// 更新 macOS 選單列文字(其他平台為 no-op)。
+  void _updateMenuBar() {
+    final remaining = _state.remaining(_now);
+    String title;
+    switch (_state.status) {
+      case TimerStatus.running:
+        title = remaining == Duration.zero ? '時間到' : _fmt(remaining);
+        break;
+      case TimerStatus.paused:
+        title = '⏸ ${_fmt(remaining)}'; // 暫停標記 + 凍結剩餘時間
+        break;
+      case TimerStatus.idle:
+        title = ''; // 閒置時只留圖示
+        break;
+    }
+    _services.menuBar.setTitle(title);
+  }
+
+  /// 這個 [state] 的當前 deadline 是否已被(任一裝置)響過。
+  /// `lastFiredAt` 跨裝置共用,記錄上次「時間到」的 deadline 絕對時刻;
+  /// 若 lastFiredAt 已不早於目前 deadline,代表這一輪已經響過,不該再響。
+  bool _firedForDeadline(TimerState state) {
+    final fired = state.lastFiredAt;
+    final deadline = state.deadline;
+    if (fired == null || deadline == null) return false;
+    return !fired.isBefore(deadline);
+  }
+
+  /// 時間到:播放響鈴(保證出聲)+ 顯示通知。前景優先,取消 OS 排程避免重複。
+  Future<void> _fireAlarm() async {
+    _firedThisRound = true;
+    // 記錄「上次時間到」的時刻(用該輪 deadline 為準,跨裝置一致;極短倒數無 deadline 時退用現在)。
+    await _services.repository.recordFired(_state.deadline ?? DateTime.now());
+    await _services.notifications.cancelAll();
+    await _services.notifications.showNow();
+    // 動態島 / 鎖定畫面顯示「時間到」並維持(deadline 已過 → widget 顯示時間到,
+    // staleDate=nil 不會自動消失);直到使用者按停止才 end 移除。
+    await _syncLiveActivity(_state, DateTime.now());
+    // 開始響鈴前再確認:目前 _state 仍是「running 且 deadline 已過(就是這一輪到期)」。
+    // 開機 / 開 App 時 Firestore 會先送快取的舊狀態(上一輪 running、deadline 已過)
+    // 再送伺服器最新狀態,兩個 _onState 會交錯;若最新已是 idle(被停止)或已開始
+    // 新一輪(deadline 在未來),都不可響鈴 —— 否則會在新計時中突然響起、或一直響
+    // (新一輪也是 running,只檢查 status 會漏掉)。此檢查與 start 之間不留 await。
+    final now = DateTime.now();
+    if (_state.status != TimerStatus.running ||
+        _state.deadline == null ||
+        _state.deadline!.isAfter(now)) {
+      return;
+    }
+    await _services.alarm.start();
+  }
+
+  String _fmt(Duration d) {
+    final h = d.inHours.toString().padLeft(2, '0');
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$h:$m:$s';
+  }
+
+  /// 格式化絕對時刻為「HH:mm:ss」;非今天則加上「M/D」前綴。
+  String _fmtClock(DateTime t) {
+    final local = t.toLocal();
+    final hh = local.hour.toString().padLeft(2, '0');
+    final mm = local.minute.toString().padLeft(2, '0');
+    final ss = local.second.toString().padLeft(2, '0');
+    final time = '$hh:$mm:$ss';
+    final now = _now.toLocal();
+    final sameDay =
+        local.year == now.year && local.month == now.month && local.day == now.day;
+    return sameDay ? time : '${local.month}/${local.day} $time';
+  }
+
+  Future<void> _pickDuration() async {
+    final picked = await DurationPickerSheet.show(
+      context,
+      Duration(seconds: _state.durationSeconds),
+    );
+    if (picked != null) {
+      await _services.repository.setDuration(picked.inSeconds);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final remaining = _state.remaining(_now);
+    final status = _state.status;
+    final running = status == TimerStatus.running;
+
+    final String statusText;
+    switch (status) {
+      case TimerStatus.running:
+        statusText = '倒數中…';
+        break;
+      case TimerStatus.paused:
+        statusText = '已暫停';
+        break;
+      case TimerStatus.idle:
+        statusText = remaining == Duration.zero ? '已歸零' : '已設定,待啟動';
+        break;
+    }
+
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              _fmt(remaining),
+              style: const TextStyle(
+                  fontSize: 72,
+                  fontWeight: FontWeight.bold,
+                  fontFeatures: [FontFeature.tabularFigures()]),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              statusText,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            if (_state.updatedBy.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text('最後操作:${_state.updatedBy}',
+                    style: Theme.of(context).textTheme.bodySmall),
+              ),
+            if (_state.lastFiredAt != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text('上次時間到:${_fmtClock(_state.lastFiredAt!)}',
+                    style: Theme.of(context).textTheme.bodySmall),
+              ),
+            const SizedBox(height: 32),
+            // 加 / 減時間(倒數中、暫停、待啟動皆可用)。
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => _services.repository.addSeconds(-60),
+                  icon: const Icon(Icons.remove),
+                  label: const Text('1 分'),
+                ),
+                const SizedBox(width: 16),
+                OutlinedButton.icon(
+                  onPressed: () => _services.repository.addSeconds(60),
+                  icon: const Icon(Icons.add),
+                  label: const Text('1 分'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // 主要操作(依狀態)。
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (status == TimerStatus.idle) ...[
+                  OutlinedButton.icon(
+                    onPressed: _pickDuration,
+                    icon: const Icon(Icons.timer),
+                    label: const Text('設定時間'),
+                  ),
+                  const SizedBox(width: 16),
+                  FilledButton.icon(
+                    onPressed: () => _services.repository.start(),
+                    icon: const Icon(Icons.play_arrow),
+                    label: const Text('啟動'),
+                  ),
+                ] else ...[
+                  if (running)
+                    FilledButton.icon(
+                      onPressed: () => _services.repository.pause(),
+                      icon: const Icon(Icons.pause),
+                      label: const Text('暫停'),
+                    )
+                  else
+                    FilledButton.icon(
+                      onPressed: () => _services.repository.resume(),
+                      icon: const Icon(Icons.play_arrow),
+                      label: const Text('繼續'),
+                    ),
+                  const SizedBox(width: 16),
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.error,
+                    ),
+                    onPressed: () {
+                      // 立即靜音(不等 Firestore 來回),同時同步停止狀態。
+                      _services.alarm.stop();
+                      _services.repository.stop();
+                    },
+                    icon: const Icon(Icons.stop),
+                    label: const Text('停止'),
+                  ),
+                ],
+              ],
+            ),
+            if (!_services.notifications.supportsScheduling)
+              Padding(
+                padding: const EdgeInsets.only(top: 24),
+                child: Text(
+                  '此平台 App 關閉時不會背景通知(僅執行中通知)',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).hintColor,
+                      ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}

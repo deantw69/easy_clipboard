@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>API_KEY</key>
+	<string>AIzaSyAiYsnmcna2GrgnSk9RaGd53a6gxSbdaRU</string>
+	<key>GCM_SENDER_ID</key>
+	<string>393105423189</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.philio.easyClipboard</string>
+	<key>PROJECT_ID</key>
+	<string>cross-platform-alarm-app</string>
+	<key>STORAGE_BUCKET</key>
+	<string>cross-platform-alarm-app.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:393105423189:ios:889d7247eb991af06f8ddc</string>
+</dict>
+</plist>

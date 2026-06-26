@@ -12,5 +12,10 @@ import UIKit
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+
+    // 註冊 Live Activity(動態島)channel。
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "LiveActivityChannel") {
+      LiveActivityChannel.register(messenger: registrar.messenger())
+    }
   }
 }

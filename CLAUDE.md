@@ -18,6 +18,19 @@
 - 分頁切換記憶:`root_page.dart` 把 index 寫入 appSupport 的 `last_tab` 檔(沿用 last_target pattern),各裝置分開記,啟動還原。
 - iOS 分享**全為網址**時,`runShareFlow`(`home_page.dart`)先跳「加入備忘錄／傳到裝置」對話框;選備忘錄則 `_addUrlsToMemo` 跳 memo picker(選現有或 `c.memos.add()` 新建),把 URL 以 `MemoTodo.create` 加為待辦。
 
+## 鬧鐘分頁(跨裝置倒數計時, 由 cross_platform_alarm 整合)
+- 第三個分頁「鬧鐘」,實為**跨裝置共用的單一倒數計時器**(非多組鬧鐘),程式在 `lib/alarm/`。與剪貼簿/備忘錄同列於 `root_page.dart` 的 `NavigationBar`(index 2,圖示 `Icons.alarm`)。
+- **同步走 Firebase Firestore**(與 easy_clipboard 其餘功能的區網 P2P 無關):單一 `timers/shared` document,所有裝置共用。`TimerRepository`(`timer_repository.dart`)封裝讀寫;`TimerState`(`timer_state.dart`)只存絕對 `deadline` 與長度,各裝置本地算剩餘。LWW 靠 Firestore transaction。
+- 接的是 **Firebase 專案 `cross-platform-alarm-app`**,bundleId 為 easy_clipboard 自己的 `com.philio.easyClipboard`(以 `flutterfire configure` 註冊進同專案),因此與獨立版「跨平台鬧鐘」App **共用同一筆倒數**。設定檔:`lib/firebase_options.dart`、`ios|macos/Runner/GoogleService-Info.plist`(皆 git 追蹤)。
+- 服務以 `AlarmServices`(`alarm_services.dart`)holder 持有,於 `main()` 內 `await Firebase.initializeApp()` 後建立,用 `Provider<AlarmServices>.value` 注入;`AlarmPage` 在 `initState` 以 `context.read` 取用(不在 dispose 中 dispose 這些 App 生命週期單例)。
+- 通知:`notification_service.dart` 用 `flutter_local_notifications`(channel `timer_done`、id `1001`),iOS/macOS/Android 支援排程(`zonedSchedule`),**Windows 不支援排程**(只在前景 `showNow`,UI 顯示提示)。前景響鈴用 `audioplayers` 播 `assets/sounds/alarm.wav`(`alarm_sound_service.dart`)。
+- macOS 選單列倒數顯示:保留鬧鐘的 `menu_bar_service.dart`(用 `trayManager`,僅 macOS,與 Windows 的 `core/desktop_tray_service.dart` 互不衝突)。**未搬**鬧鐘原本的 `desktop_tray_service.dart` 與 `launch_at_startup`(會與既有 window_manager/autostart 重複)。
+- iOS Live Activity(動態島):`live_activity_service.dart` 經 MethodChannel **`easy_clipboard/live_activity`**(已從原 `app.philio.cross_platform_alarm/...` 改名)接原生。原生檔 `ios/Runner/LiveActivityChannel.swift`、`LiveActivityManager.swift`(在 Runner target,`AppDelegate.didInitializeImplicitFlutterEngine` 內註冊),Widget Extension 在 `ios/CountdownWidget/`(target `CountdownWidgetExtension`,bundleId `com.philio.easyClipboard.CountdownWidget`,部署 16.1)。`Info.plist` 有 `NSSupportsLiveActivities=true`。
+- Widget target 是用 `xcodeproj` gem 腳本加入 Runner.xcodeproj(objectVersion 54),`.appex` 加進既有 **Embed Foundation Extensions** phase(仍在 Thin Binary / Embed Pods 之前,避免 Cycle)。
+- **iOS 部署目標因 Firebase 提到 15.0**(專案層級,Runner 與 Share Extension 繼承;`ios/Podfile` 也是 15.0)。macOS 維持 13.0。
+- pod install 在系統 Ruby 2.6 會撞 `Encoding::CompatibilityError`,需 `export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8`。
+- 不支援 Android(easy_clipboard 無 android/ 目錄);`firebase_options.dart` 內的 Android 條目用不到。
+
 ## macOS 建置
 - 編譯 macOS release 版後，**一律**把產出的 `.app` 複製一份到使用者的下載資料夾，方便取用：
   ```bash

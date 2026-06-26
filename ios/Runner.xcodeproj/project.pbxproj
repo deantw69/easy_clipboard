@@ -15,6 +15,7 @@
 		4C18446AEB15B5F1E3117BF8 /* LiveActivityChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40A84790141BF4C79BA1659F /* LiveActivityChannel.swift */; };
 		64C6152C60B943BD068A9591 /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 401C2619FBA57613624DFB6F /* Pods_RunnerTests.framework */; };
 		653BC0BA39AEB4C8B39F742B /* CountdownAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DC0FC15594DCCE7FD277CAB /* CountdownAttributes.swift */; };
+		B1A2C3D4E5F60718293A4B5C /* CountdownAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DC0FC15594DCCE7FD277CAB /* CountdownAttributes.swift */; };
 		74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FAE1ED2DC5600515810 /* AppDelegate.swift */; };
 		7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */; };
 		7F96209CC7FBA6F3567EC79B /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 590C7AC04939473E6C1C4A29 /* LiveActivityManager.swift */; };
@@ -599,6 +600,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
+				B1A2C3D4E5F60718293A4B5C /* CountdownAttributes.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
 				4C18446AEB15B5F1E3117BF8 /* LiveActivityChannel.swift in Sources */,

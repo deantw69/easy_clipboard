@@ -27,9 +27,12 @@
 - macOS 選單列倒數顯示:保留鬧鐘的 `menu_bar_service.dart`(用 `trayManager`,僅 macOS,與 Windows 的 `core/desktop_tray_service.dart` 互不衝突)。**未搬**鬧鐘原本的 `desktop_tray_service.dart` 與 `launch_at_startup`(會與既有 window_manager/autostart 重複)。
 - iOS Live Activity(動態島):`live_activity_service.dart` 經 MethodChannel **`easy_clipboard/live_activity`**(已從原 `app.philio.cross_platform_alarm/...` 改名)接原生。原生檔 `ios/Runner/LiveActivityChannel.swift`、`LiveActivityManager.swift`(在 Runner target,`AppDelegate.didInitializeImplicitFlutterEngine` 內註冊),Widget Extension 在 `ios/CountdownWidget/`(target `CountdownWidgetExtension`,bundleId `com.philio.easyClipboard.CountdownWidget`,部署 16.1)。`Info.plist` 有 `NSSupportsLiveActivities=true`。
 - Widget target 是用 `xcodeproj` gem 腳本加入 Runner.xcodeproj(objectVersion 54),`.appex` 加進既有 **Embed Foundation Extensions** phase(仍在 Thin Binary / Embed Pods 之前,避免 Cycle)。
+- `ios/CountdownWidget/CountdownAttributes.swift`(`ActivityAttributes` 型別)**必須同時屬於 Runner 與 CountdownWidgetExtension 兩個 target**(Apple Live Activity 標準作法:Attributes 靠**檔案 membership 共用**,非 module import)。Runner 的 `LiveActivityManager.swift` 與 Widget 的 `CountdownLiveActivity.swift` 都引用它。pbxproj 裡同一 `fileRef` 要有**兩個** PBXBuildFile 條目,分別掛進兩個 target 的 Sources phase;只掛 Widget 會讓 Runner 編譯報 `Cannot find 'CountdownAttributes' in scope` 而 iOS build 失敗。
 - **iOS 部署目標因 Firebase 提到 15.0**(專案層級,Runner 與 Share Extension 繼承;`ios/Podfile` 也是 15.0)。macOS 維持 13.0。
 - pod install 在系統 Ruby 2.6 會撞 `Encoding::CompatibilityError`,需 `export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8`。
 - 不支援 Android(easy_clipboard 無 android/ 目錄);`firebase_options.dart` 內的 Android 條目用不到。
+- **Firebase 版本鎖(別亂升,否則啟動黑/白屏)**:`firebase_core` 釘 `4.10.0`,其原生 Pigeon 的 `FirebaseOptions` 為 **14 欄**(到 `appGroupId`,無 `recaptchaSiteKey`)。但 transitive 的 `firebase_core_web 3.9.0`(web 用,本專案 macOS/iOS/Windows **用不到**)要求 `firebase_core_platform_interface ^7.1.0`,而 7.1.0 的 Dart 解碼是 **15 欄**(多 `recaptchaSiteKey`)→ `Firebase.initializeApp` 解碼 `RangeError: 0..13: 14`,`main()` 拋例外、到不了 `runApp`,**macOS 黑屏 / iOS 白屏卡死**。修法:`pubspec.yaml` 用 `dependency_overrides: firebase_core_platform_interface: 7.0.1`(14 欄)與原生對齊。
+- **不要為了消 override 而升 `firebase_core` 到 4.11.0**:會連帶把原生 Firebase SDK 拉高,Firestore pod 需要更高 macOS 部署目標,與 `cloud_firestore 6.5.0` 宣告的平台版本衝突(`pod install` 報 "Firebase/Firestore ... requires a higher minimum macOS deployment version")。要往前升得整組(firebase_core + cloud_firestore + 部署目標)一起動,非必要別碰。
 
 ## macOS 建置
 - 編譯 macOS release 版後，**一律**把產出的 `.app` 複製一份到使用者的下載資料夾，方便取用：
@@ -40,6 +43,7 @@
   ```
 - `flutter` 不在預設 PATH，需先 `export PATH="$PATH:$HOME/development/flutter/bin"`。
 - iOS 部署目標因 `gal` 套件需求為 **11.0**；macOS 部署目標因開機自啟動用 `SMAppService` 已提高到 **13.0**（`macos/Podfile` 與 `project.pbxproj` 的 `MACOSX_DEPLOYMENT_TARGET`）。
+- **絕不可平行跑 macOS 與 iOS 建置**：兩者各自的 Xcode build DB(`build/.../XCBuildData/build.db`)在同一檔案系統位置同時建置會互鎖,報 `error: unable to attach DB ... database is locked ... two concurrent builds`,其中一個 **BUILD FAILED**。更危險的是 `flutter build` 失敗後**舊產物仍留著**,接著 `cp`/`flutter install` 會誤裝到舊版(曾因此 macOS 與 iPhone 都還停在舊的兩分頁版,誤判成「鬧鐘分頁沒顯示」)。建置一律**序列化**:做完一個再做下一個。若已撞鎖,先 `rm -rf build/macos/Build/Intermediates.noindex/XCBuildData` 再重編。
 
 ## iOS 系統分享選單(Share Extension)
 - 目標:在其他 App 的分享選單顯示 easy_clipboard,接收圖片 / 文字 / 網址後自動送到上次使用的裝置(離線跳裝置選單)。

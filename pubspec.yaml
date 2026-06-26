@@ -65,6 +65,14 @@ dependencies:
   flutter_timezone: 5.1.0
   audioplayers: 6.6.0
 
+# firebase_core 4.10.0 的原生 Pigeon 為 14 欄(FirebaseOptions 無 recaptchaSiteKey),
+# 但 firebase_core_web 3.9.0 會把 firebase_core_platform_interface 拉到 7.1.0(15 欄,
+# 多 recaptchaSiteKey),導致 Firebase.initializeApp 解碼時 RangeError、App 永遠到不了 runApp
+# (macOS 黑屏 / iOS 白屏卡死)。此處釘回 7.0.1(14 欄)與原生對齊。firebase_core_web 為 web 用,
+# 本專案(macOS/iOS/Windows)用不到,override 不影響原生建置。
+dependency_overrides:
+  firebase_core_platform_interface: 7.0.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

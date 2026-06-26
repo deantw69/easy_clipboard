@@ -10,6 +10,7 @@
 - `Memo` 另有 `colorValue`(ARGB,null=預設黃 `0xFFFFF8C4`)與 `sortKey`(排序鍵)兩欄,皆進 JSON 隨 LWW 同步。色票常數在 `memos_page.dart` 的 `kMemoColors`。
 - **排序看 `sortKey`(升冪),不是 `updatedAt`**:`visibleMemos` 先比 sortKey、相等再比 updatedAt 降冪(舊資料 sortKey 皆 0,維持新到舊)。`add()` 取最小 sortKey-1 置頂;拖曳由 `reorder(orderedIds)` 重指派並 touch。因此 `toggleTodo` 雖 touch updatedAt,**不會**改變列表順序。
 - 列表用 `ReorderableListView.builder` 拖曳排序;待辦只有 checkbox 用 `InkWell` 可點(整列不可點),待辦尾端有複製鈕;刪除前跳 confirm。
+- 拖曳:`buildDefaultDragHandles: false` 關掉桌面預設的橫槓把手,每列包 `ReorderableDelayedDragStartListener` 改整列長按拖曳(桌面/手機一致);`proxyDecorator` 用透明 `Material`+圓角,浮起時只留卡片陰影不出現白邊。卡片右上角刪除鈕用 `SizedBox`+緊湊 `IconButton` 對齊標題首行。
 - 分頁切換記憶:`root_page.dart` 把 index 寫入 appSupport 的 `last_tab` 檔(沿用 last_target pattern),各裝置分開記,啟動還原。
 - iOS 分享**全為網址**時,`runShareFlow`(`home_page.dart`)先跳「加入備忘錄／傳到裝置」對話框;選備忘錄則 `_addUrlsToMemo` 跳 memo picker(選現有或 `c.memos.add()` 新建),把 URL 以 `MemoTodo.create` 加為待辦。
 

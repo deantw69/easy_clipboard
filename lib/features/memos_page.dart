@@ -42,6 +42,15 @@ class MemosPage extends StatelessWidget {
           : ReorderableListView.builder(
               padding: const EdgeInsets.all(8),
               itemCount: memos.length,
+              // 桌面端不顯示預設的兩條橫槓拖曳把手,改用整列長按拖曳(與手機一致)。
+              buildDefaultDragHandles: false,
+              // 拖曳浮起時只保留卡片本身的陰影,避免出現多餘白邊。
+              proxyDecorator: (child, index, animation) => Material(
+                color: Colors.transparent,
+                elevation: 6,
+                borderRadius: BorderRadius.circular(12),
+                child: child,
+              ),
               onReorder: (oldIndex, newIndex) {
                 if (newIndex > oldIndex) newIndex -= 1;
                 final ids = memos.map((m) => m.id).toList();
@@ -49,8 +58,11 @@ class MemosPage extends StatelessWidget {
                 ids.insert(newIndex, moved);
                 store.reorder(ids);
               },
-              itemBuilder: (_, i) =>
-                  _MemoCard(key: ValueKey(memos[i].id), memo: memos[i]),
+              itemBuilder: (_, i) => ReorderableDelayedDragStartListener(
+                key: ValueKey(memos[i].id),
+                index: i,
+                child: _MemoCard(memo: memos[i]),
+              ),
             ),
     );
   }
@@ -137,14 +149,21 @@ class _MemoCard extends StatelessWidget {
                   ],
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline,
-                    size: 20, color: Colors.black45),
-                tooltip: '刪除',
-                onPressed: () async {
-                  final ok = await _confirmDelete(context);
-                  if (ok) store.delete(memo.id);
-                },
+              // 刪除鈕高度對齊左側標題首行。
+              SizedBox(
+                height: 22,
+                child: IconButton(
+                  icon: const Icon(Icons.delete_outline,
+                      size: 20, color: Colors.black45),
+                  tooltip: '刪除',
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints.tightFor(width: 36),
+                  onPressed: () async {
+                    final ok = await _confirmDelete(context);
+                    if (ok) store.delete(memo.id);
+                  },
+                ),
               ),
             ],
           ),

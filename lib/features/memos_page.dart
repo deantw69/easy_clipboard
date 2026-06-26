@@ -130,6 +130,7 @@ class _MemoCard extends StatelessWidget {
         margin: const EdgeInsets.symmetric(vertical: 6),
         child: InkWell(
           onTap: () => _openEditor(context, store, memo),
+          highlightColor: Colors.transparent,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
             child: Column(
@@ -218,25 +219,29 @@ class _MemoCard extends StatelessWidget {
                               },
                             ),
                           ),
-                          // 複製鈕緊湊,右側不留多餘空白。
-                          IconButton(
-                            icon: const Icon(Icons.copy,
-                                size: 18, color: Colors.black45),
-                            tooltip: '複製',
-                            padding: EdgeInsets.zero,
-                            visualDensity: VisualDensity.compact,
-                            constraints:
-                                const BoxConstraints.tightFor(width: 24),
-                            onPressed: () async {
-                              await Clipboard.setData(
-                                  ClipboardData(text: todo.text));
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('已複製')),
-                                );
-                              }
-                            },
-                          ),
+                          // 只有網址才顯示右側複製鈕。
+                          if (_isUrl(todo.text)) ...[
+                            const SizedBox(width: 6),
+                            IconButton(
+                              icon: const Icon(Icons.copy,
+                                  size: 18, color: Colors.black45),
+                              tooltip: '複製',
+                              padding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                              constraints:
+                                  const BoxConstraints.tightFor(width: 24),
+                              onPressed: () async {
+                                await Clipboard.setData(
+                                    ClipboardData(text: todo.text));
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('已複製')),
+                                  );
+                                }
+                              },
+                            ),
+                            const SizedBox(width: 6),
+                          ],
                         ],
                       ),
                     ),

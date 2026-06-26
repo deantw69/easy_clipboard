@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../app_controller.dart';
 import '../core/autostart.dart';
 import '../core/models.dart';
+import '../memos/memo_store.dart';
 
 bool get _isDesktop =>
     Platform.isMacOS || Platform.isWindows || Platform.isLinux;
@@ -289,6 +290,17 @@ class _DesktopShortcuts extends StatelessWidget {
 /// 選定後依序送出。
 Future<void> runShareFlow(
     BuildContext context, AppController c, List<SharedPayload> payloads) async {
+  // 分享進來的全是網址時,先問要加入備忘錄還是傳到裝置(剪貼簿)。
+  if (payloads.isNotEmpty &&
+      payloads.every((p) => p.kind == SharedKind.url)) {
+    final dest = await _showUrlDestinationDialog(context);
+    if (dest == null || !context.mounted) return;
+    if (dest == _UrlDest.memo) {
+      await _addUrlsToMemo(context, c, payloads);
+      return;
+    }
+    // _UrlDest.clipboard → 繼續下方原本的傳送流程。
+  }
   DeviceInfo? target;
   if (c.lastTargetId != null) {
     target = await _resolveLastTargetWithDialog(context, c);
@@ -297,6 +309,96 @@ Future<void> runShareFlow(
   target ??= await showShareTargetPicker(context, payloads);
   if (target == null || !context.mounted) return;
   await _sendSharedBatch(context, c, target, payloads);
+}
+
+/// 分享網址的去向。
+enum _UrlDest { memo, clipboard }
+
+/// 詢問分享進來的網址要「加入備忘錄」還是「傳到裝置(剪貼簿)」。
+Future<_UrlDest?> _showUrlDestinationDialog(BuildContext context) {
+  return showDialog<_UrlDest>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('收到網址'),
+      content: const Text('要把網址加入備忘錄,還是傳到其他裝置?'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('取消'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, _UrlDest.clipboard),
+          child: const Text('傳到裝置'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, _UrlDest.memo),
+          child: const Text('加入備忘錄'),
+        ),
+      ],
+    ),
+  );
+}
+
+/// 選一則(或新建)備忘錄,把網址加為它的待辦項目。
+Future<void> _addUrlsToMemo(
+    BuildContext context, AppController c, List<SharedPayload> payloads) async {
+  final urls = payloads.map((p) => p.value).toList();
+  final target = await showModalBottomSheet<Memo>(
+    context: context,
+    showDragHandle: true,
+    builder: (ctx) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: Text('加入到備忘錄…',
+                style:
+                    TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ),
+          ListTile(
+            leading: const Icon(Icons.add),
+            title: const Text('新增備忘錄'),
+            onTap: () => Navigator.pop(ctx, c.memos.add()),
+          ),
+          const Divider(height: 1),
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (final m in c.memos.visibleMemos)
+                  ListTile(
+                    leading: const Icon(Icons.sticky_note_2_outlined),
+                    title: Text(
+                      m.text.trim().isNotEmpty
+                          ? m.text
+                          : (m.todos.isNotEmpty
+                              ? m.todos.first.text
+                              : '(空白備忘錄)'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onTap: () => Navigator.pop(ctx, m),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+  if (target == null) return;
+  c.memos.update(target.id, (m) {
+    for (final url in urls) {
+      m.todos.add(MemoTodo.create(text: url));
+    }
+  });
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('已加入備忘錄')),
+    );
+  }
 }
 
 /// 顯示「搜尋上次裝置中」對話框,同時在背景輪詢等該裝置上線;找到回傳,逾時回 null。

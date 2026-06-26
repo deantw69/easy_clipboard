@@ -7,6 +7,11 @@
 - 協定:HTTP `POST /memos/sync`(`lan_transport.dart`),body 為發起方完整清單 JSON,接收端 `mergeJson` 後回傳自己的完整清單,一次往返雙方收斂。transport 介面新增 `syncMemos` 與 `start(...onMemoSync)`。
 - 觸發點(`AppController.syncMemosWithAll`,`_syncing` 去抖):discovery onChanged、桌面 15 秒 timer、回前景、本地編輯(`MemoStore.onLocalChange`)。`mergeJson` 內**不可**再呼叫 `onLocalChange`,否則兩台無限互推。
 - iPhone 不需特殊處理,任兩台同網即合併,iPhone 隨身帶著自然成為 macOS↔Windows 橋樑。
+- `Memo` 另有 `colorValue`(ARGB,null=預設黃 `0xFFFFF8C4`)與 `sortKey`(排序鍵)兩欄,皆進 JSON 隨 LWW 同步。色票常數在 `memos_page.dart` 的 `kMemoColors`。
+- **排序看 `sortKey`(升冪),不是 `updatedAt`**:`visibleMemos` 先比 sortKey、相等再比 updatedAt 降冪(舊資料 sortKey 皆 0,維持新到舊)。`add()` 取最小 sortKey-1 置頂;拖曳由 `reorder(orderedIds)` 重指派並 touch。因此 `toggleTodo` 雖 touch updatedAt,**不會**改變列表順序。
+- 列表用 `ReorderableListView.builder` 拖曳排序;待辦只有 checkbox 用 `InkWell` 可點(整列不可點),待辦尾端有複製鈕;刪除前跳 confirm。
+- 分頁切換記憶:`root_page.dart` 把 index 寫入 appSupport 的 `last_tab` 檔(沿用 last_target pattern),各裝置分開記,啟動還原。
+- iOS 分享**全為網址**時,`runShareFlow`(`home_page.dart`)先跳「加入備忘錄／傳到裝置」對話框;選備忘錄則 `_addUrlsToMemo` 跳 memo picker(選現有或 `c.memos.add()` 新建),把 URL 以 `MemoTodo.create` 加為待辦。
 
 ## macOS 建置
 - 編譯 macOS release 版後，**一律**把產出的 `.app` 複製一份到使用者的下載資料夾，方便取用：

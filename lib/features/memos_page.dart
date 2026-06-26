@@ -1,9 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../memos/memo_store.dart';
 
-/// 備忘錄分頁:便利貼風格的列表。點卡片編輯、勾選待辦、右上角新增。
+/// 便利貼固定色票(淺色系)。第一個為預設黃。
+const Color _defaultMemoColor = Color(0xFFFFF8C4);
+const List<Color> kMemoColors = [
+  _defaultMemoColor, // 黃(預設)
+  Color(0xFFFFD9DE), // 粉紅
+  Color(0xFFCDE7FF), // 藍
+  Color(0xFFD4F4D2), // 綠
+  Color(0xFFFFE0BD), // 橘
+  Color(0xFFE6D9FF), // 紫
+];
+
+Color _memoColorOf(Memo memo) =>
+    memo.colorValue != null ? Color(memo.colorValue!) : _defaultMemoColor;
+
+/// 備忘錄分頁:便利貼風格的列表。點卡片編輯、勾選待辦、右上角新增、可拖曳排序。
 class MemosPage extends StatelessWidget {
   const MemosPage({super.key});
 
@@ -24,10 +39,18 @@ class MemosPage extends StatelessWidget {
       ),
       body: memos.isEmpty
           ? const Center(child: Text('還沒有備忘錄,點右上角 + 新增'))
-          : ListView.builder(
+          : ReorderableListView.builder(
               padding: const EdgeInsets.all(8),
               itemCount: memos.length,
-              itemBuilder: (_, i) => _MemoCard(memo: memos[i]),
+              onReorder: (oldIndex, newIndex) {
+                if (newIndex > oldIndex) newIndex -= 1;
+                final ids = memos.map((m) => m.id).toList();
+                final moved = ids.removeAt(oldIndex);
+                ids.insert(newIndex, moved);
+                store.reorder(ids);
+              },
+              itemBuilder: (_, i) =>
+                  _MemoCard(key: ValueKey(memos[i].id), memo: memos[i]),
             ),
     );
   }
@@ -36,13 +59,13 @@ class MemosPage extends StatelessWidget {
 /// 便利貼卡片:顯示文字與待辦勾選;點卡片進編輯。
 class _MemoCard extends StatelessWidget {
   final Memo memo;
-  const _MemoCard({required this.memo});
+  const _MemoCard({super.key, required this.memo});
 
   @override
   Widget build(BuildContext context) {
     final store = context.read<MemoStore>();
     return Card(
-      color: const Color(0xFFFFF8C4), // 便利貼黃
+      color: _memoColorOf(memo),
       margin: const EdgeInsets.symmetric(vertical: 6),
       child: InkWell(
         onTap: () => _openEditor(context, store, memo),
@@ -62,33 +85,53 @@ class _MemoCard extends StatelessWidget {
                             fontSize: 15, color: Colors.black87),
                       ),
                     for (final todo in memo.todos)
-                      InkWell(
-                        onTap: () => store.toggleTodo(memo.id, todo.id),
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Row(
-                            children: [
-                              Icon(
-                                todo.done
-                                    ? Icons.check_box
-                                    : Icons.check_box_outline_blank,
-                                size: 20,
-                                color: Colors.black54,
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  todo.text,
-                                  style: TextStyle(
-                                    color: Colors.black87,
-                                    decoration: todo.done
-                                        ? TextDecoration.lineThrough
-                                        : null,
-                                  ),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Row(
+                          children: [
+                            // 只有 checkbox 可點選勾選。
+                            InkWell(
+                              borderRadius: BorderRadius.circular(4),
+                              onTap: () => store.toggleTodo(memo.id, todo.id),
+                              child: Padding(
+                                padding: const EdgeInsets.all(2),
+                                child: Icon(
+                                  todo.done
+                                      ? Icons.check_box
+                                      : Icons.check_box_outline_blank,
+                                  size: 20,
+                                  color: Colors.black54,
                                 ),
                               ),
-                            ],
-                          ),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                todo.text,
+                                style: TextStyle(
+                                  color: Colors.black87,
+                                  decoration: todo.done
+                                      ? TextDecoration.lineThrough
+                                      : null,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.copy,
+                                  size: 18, color: Colors.black45),
+                              tooltip: '複製',
+                              visualDensity: VisualDensity.compact,
+                              onPressed: () async {
+                                await Clipboard.setData(
+                                    ClipboardData(text: todo.text));
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('已複製')),
+                                  );
+                                }
+                              },
+                            ),
+                          ],
                         ),
                       ),
                   ],
@@ -98,7 +141,10 @@ class _MemoCard extends StatelessWidget {
                 icon: const Icon(Icons.delete_outline,
                     size: 20, color: Colors.black45),
                 tooltip: '刪除',
-                onPressed: () => store.delete(memo.id),
+                onPressed: () async {
+                  final ok = await _confirmDelete(context);
+                  if (ok) store.delete(memo.id);
+                },
               ),
             ],
           ),
@@ -106,6 +152,28 @@ class _MemoCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 刪除前確認。
+Future<bool> _confirmDelete(BuildContext context) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('刪除備忘錄'),
+      content: const Text('確定要刪除這則備忘錄嗎?'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('刪除'),
+        ),
+      ],
+    ),
+  );
+  return ok ?? false;
 }
 
 /// 開啟編輯器([memo] 為 null 表示新增)。
@@ -131,11 +199,13 @@ class _MemoEditorState extends State<_MemoEditor> {
   // 編輯時用暫存的待辦清單,按「儲存」才寫回。
   late final List<MemoTodo> _todos;
   final List<TextEditingController> _todoCtrls = [];
+  late int? _colorValue;
 
   @override
   void initState() {
     super.initState();
     _text = TextEditingController(text: widget.memo?.text ?? '');
+    _colorValue = widget.memo?.colorValue;
     _todos = widget.memo == null
         ? []
         : widget.memo!.todos
@@ -182,11 +252,15 @@ class _MemoEditorState extends State<_MemoEditor> {
         return;
       }
       final memo = widget.store.add(text: text);
-      widget.store.update(memo.id, (m) => m.todos = todos);
+      widget.store.update(memo.id, (m) {
+        m.todos = todos;
+        m.colorValue = _colorValue;
+      });
     } else {
       widget.store.update(widget.memo!.id, (m) {
         m.text = text;
         m.todos = todos;
+        m.colorValue = _colorValue;
       });
     }
     Navigator.of(context).pop();
@@ -201,7 +275,26 @@ class _MemoEditorState extends State<_MemoEditor> {
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // 色票選擇。
+              Wrap(
+                spacing: 10,
+                children: [
+                  for (final c in kMemoColors)
+                    _ColorSwatch(
+                      color: c,
+                      selected:
+                          (_colorValue ?? _defaultMemoColor.toARGB32()) ==
+                              c.toARGB32(),
+                      onTap: () => setState(() => _colorValue =
+                          c.toARGB32() == _defaultMemoColor.toARGB32()
+                              ? null
+                              : c.toARGB32()),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
               TextField(
                 controller: _text,
                 maxLines: null,
@@ -251,6 +344,37 @@ class _MemoEditorState extends State<_MemoEditor> {
         ),
         FilledButton(onPressed: _save, child: const Text('儲存')),
       ],
+    );
+  }
+}
+
+/// 可點選的圓形色票,選中時顯示外框。
+class _ColorSwatch extends StatelessWidget {
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+  const _ColorSwatch(
+      {required this.color, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: selected ? Colors.black87 : Colors.black26,
+            width: selected ? 2.5 : 1,
+          ),
+        ),
+        child: selected
+            ? const Icon(Icons.check, size: 18, color: Colors.black54)
+            : null,
+      ),
     );
   }
 }

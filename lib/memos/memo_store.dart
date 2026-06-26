@@ -37,12 +37,20 @@ class Memo {
   int updatedAt;
   bool deleted;
 
+  /// 便利貼底色(ARGB int);null 表示用預設黃。
+  int? colorValue;
+
+  /// 列表排序鍵(升冪,小者在上);拖曳排序時改寫。預設 0。
+  int sortKey;
+
   Memo({
     required this.id,
     this.text = '',
     List<MemoTodo>? todos,
     required this.updatedAt,
     this.deleted = false,
+    this.colorValue,
+    this.sortKey = 0,
   }) : todos = todos ?? [];
 
   factory Memo.create({String text = ''}) => Memo(
@@ -60,6 +68,8 @@ class Memo {
         'todos': todos.map((t) => t.toJson()).toList(),
         'updatedAt': updatedAt,
         'deleted': deleted,
+        'colorValue': colorValue,
+        'sortKey': sortKey,
       };
 
   factory Memo.fromJson(Map<String, dynamic> j) => Memo(
@@ -70,6 +80,8 @@ class Memo {
             .toList(),
         updatedAt: (j['updatedAt'] as num?)?.toInt() ?? 0,
         deleted: (j['deleted'] as bool?) ?? false,
+        colorValue: (j['colorValue'] as num?)?.toInt(),
+        sortKey: (j['sortKey'] as num?)?.toInt() ?? 0,
       );
 }
 
@@ -84,10 +96,14 @@ class MemoStore extends ChangeNotifier {
   /// 本地內容變動時的回呼(AppController 用來觸發即時同步推送)。
   VoidCallback? onLocalChange;
 
-  /// 對 UI 顯示用:過濾墓碑,依更新時間新到舊排序。
+  /// 對 UI 顯示用:過濾墓碑,先依 sortKey 升冪(拖曳排序),
+  /// sortKey 相同(如尚未排序過的舊資料)再依 updatedAt 新到舊。
   List<Memo> get visibleMemos {
     final list = _memos.where((m) => !m.deleted).toList();
-    list.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    list.sort((a, b) {
+      final c = a.sortKey.compareTo(b.sortKey);
+      return c != 0 ? c : b.updatedAt.compareTo(a.updatedAt);
+    });
     return list;
   }
 
@@ -131,9 +147,28 @@ class MemoStore extends ChangeNotifier {
 
   Memo add({String text = ''}) {
     final memo = Memo.create(text: text);
+    // 置頂:取目前非刪除 memo 的最小 sortKey 再減 1。
+    final minKey = _memos
+        .where((m) => !m.deleted)
+        .fold<int>(0, (min, m) => m.sortKey < min ? m.sortKey : min);
+    memo.sortKey = minKey - 1;
     _memos.insert(0, memo);
     _commit();
     return memo;
+  }
+
+  /// 依使用者拖曳後的新順序([orderedIds] 為可見 memo 由上到下的 id),
+  /// 重新指派 sortKey;有變動的 touch() 以同步到其他裝置,只 commit 一次。
+  void reorder(List<String> orderedIds) {
+    var changed = false;
+    for (var i = 0; i < orderedIds.length; i++) {
+      final memo = _byId(orderedIds[i]);
+      if (memo == null || memo.sortKey == i) continue;
+      memo.sortKey = i;
+      memo.touch();
+      changed = true;
+    }
+    if (changed) _commit();
   }
 
   /// 套用對某則備忘錄的修改([mutate] 內直接改 memo 欄位),自動 touch。

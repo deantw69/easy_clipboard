@@ -60,26 +60,21 @@ private final class SharedMediaFile: Codable {
     }
 }
 
-class ShareViewController: SLComposeServiceViewController {
+class ShareViewController: UIViewController {
     private var hostAppBundleIdentifier = ""
     private var appGroupId = ""
     private var sharedMedia: [SharedMediaFile] = []
 
-    override func isContentValid() -> Bool { true }
-    override func configurationItems() -> [Any]! { [] }
-
     override func viewDidLoad() {
         super.viewDidLoad()
         loadIds()
+        // 不顯示任何 UI(不繼承 SLComposeServiceViewController 的發佈輸入框),
+        // 直接處理分享內容後跳轉主 App,避免閃出系統 compose 畫面。
+        view.backgroundColor = .clear
+        processAndRedirect()
     }
 
-    override func didSelectPost() {
-        saveAndRedirect(message: contentText)
-    }
-
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-
+    private func processAndRedirect() {
         guard let content = extensionContext?.inputItems.first as? NSExtensionItem,
               let attachments = content.attachments else {
             dismissWithError()
@@ -111,6 +106,11 @@ class ShareViewController: SLComposeServiceViewController {
                                 self.appendImage(fromFile: url, index: index, total: total)
                             } else if let image = data as? UIImage {
                                 self.appendImage(fromUIImage: image, index: index, total: total)
+                            } else if let imageData = data as? Data, let image = UIImage(data: imageData) {
+                                // 截圖編輯器分享時直接給原始 Data(非檔案 URL/UIImage),需自行轉圖
+                                self.appendImage(fromUIImage: image, index: index, total: total)
+                            } else if index == total - 1 {
+                                self.saveAndRedirect()
                             }
                         }
                     }

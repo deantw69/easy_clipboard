@@ -13,6 +13,7 @@
 - 待辦文字若為網址(`memos_page.dart` 的 `_isUrl`:以 `http(s)://` 開頭且 `Uri.hasAuthority`),改用 `Text.rich`+`TapGestureRecognizer` 顯示為藍字(`Colors.blue.shade700`)加同色底線,點擊以 `_openUrl`(`launchUrl` 外部瀏覽器)開啟。
 - 拖曳:`buildDefaultDragHandles: false` 關掉桌面預設的橫槓把手,每列包 `ReorderableDelayedDragStartListener` 改整列長按拖曳(桌面/手機一致);`proxyDecorator` 用透明 `Material`+圓角,浮起時只留卡片陰影不出現白邊。
 - 刪除:仿 Line,自製 `_SwipeRevealDelete`(非 `Dismissible`)。整列向左滑只露出固定寬度(76px)紅色刪除鈕(滑超過一半自動吸附),**點紅色區才**跳 confirm,取消則收回。紅色鈕與卡片同 `vertical margin(6)`/圓角(12)貼齊,且未滑動(`_dx==0`)時不繪製,避免卡片右側圓角透出紅色。水平拖曳與長按拖曳排序、卡片 `InkWell` 點擊編輯三者並存。
+- 編輯器刪待辦:編輯對話框內每列的 `×` 鈕走 `_removeTodo`(async),先跳 `_confirmRemoveTodo` 二次確認(顯示該待辦文字),按「刪除」才移除,與整則備忘錄刪除一致。
 - 收合:卡片右上角(原刪除鈕位置)為收合/展開鈕,僅有待辦時顯示;收合只隱藏待辦、保留標題。收合狀態存 `_MemosPageState._collapsed`(只存本機記憶體,**不持久化、不同步**)。標題列(文字+收合鈕)與待辦列分開,待辦列全寬使複製鈕貼齊右側。
 - 分頁切換記憶:`root_page.dart` 把 index 寫入 appSupport 的 `last_tab` 檔(沿用 last_target pattern),各裝置分開記,啟動還原。
 - iOS 分享**全為網址**時,`runShareFlow`(`home_page.dart`)先跳「加入備忘錄／傳到裝置」對話框;選備忘錄則 `_addUrlsToMemo` 跳 memo picker(選現有或 `c.memos.add()` 新建),把 URL 以 `MemoTodo.create` 加為待辦。

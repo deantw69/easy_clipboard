@@ -351,6 +351,29 @@ Future<bool> _confirmDelete(BuildContext context) async {
   return ok ?? false;
 }
 
+/// 刪除待辦前確認。
+Future<bool> _confirmRemoveTodo(BuildContext context, String text) async {
+  final label = text.trim();
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('刪除待辦'),
+      content: Text(label.isEmpty ? '確定要刪除這個待辦項目嗎?' : '確定要刪除「$label」嗎?'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('刪除'),
+        ),
+      ],
+    ),
+  );
+  return ok ?? false;
+}
+
 /// 開啟編輯器([memo] 為 null 表示新增)。
 Future<void> _openEditor(
     BuildContext context, MemoStore store, Memo? memo) async {
@@ -407,7 +430,11 @@ class _MemoEditorState extends State<_MemoEditor> {
     });
   }
 
-  void _removeTodo(int i) {
+  Future<void> _removeTodo(int i) async {
+    // 同步最新文字以顯示在確認對話框。
+    _todos[i].text = _todoCtrls[i].text;
+    final ok = await _confirmRemoveTodo(context, _todos[i].text);
+    if (!ok || !mounted) return;
     setState(() {
       _todos.removeAt(i);
       _todoCtrls.removeAt(i).dispose();

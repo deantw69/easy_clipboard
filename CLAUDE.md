@@ -1,5 +1,14 @@
 # easy_clipboard 專案慣例
 
+## 分支工作流程(重要)
+- **共通功能(備忘錄 memo、剪貼簿等)只在 `main` 改**。
+- **鬧鐘專屬功能(alarm)只在 `feat/alarm-tab` 改**。
+- 要讓 `feat/alarm-tab` 拿到 `main` 的新更新時:
+  ```bash
+  git checkout feat/alarm-tab
+  git merge main          # 把 main 的新 commit 併進來
+  ```
+
 ## 跨裝置備忘錄(Memo Sync)
 - 獨立「備忘錄」分頁,與剪貼簿功能在同一視窗以底部 `NavigationBar` 切換(`lib/features/root_page.dart`,`home:` 由 main 指向 `RootPage`)。
 - 資料層 `lib/memos/memo_store.dart`:`Memo`(id / text / todos / updatedAt / deleted)、`MemoTodo`、`MemoStore extends ChangeNotifier`。持久化為 appSupport 下的 `memos.json`(沿用 identity / last_target 的「檔案存 appSupport」pattern,不引資料庫)。

@@ -33,6 +33,12 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Flutter 自動產生的 plugin registrant(pub get / build 會重生,不需追蹤)
+**/flutter/generated_plugin_registrant.cc
+**/flutter/generated_plugin_registrant.h
+**/flutter/generated_plugins.cmake
+**/Flutter/GeneratedPluginRegistrant.swift
+
 # Symbolication related
 app.*.symbols
 

@@ -516,6 +516,7 @@ class _MemoEditorState extends State<_MemoEditor> {
               for (var i = 0; i < _todos.length; i++)
                 Row(
                   children: [
+                    const SizedBox(width: 12),
                     Expanded(
                       child: TextField(
                         controller: _todoCtrls[i],

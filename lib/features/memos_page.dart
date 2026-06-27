@@ -516,9 +516,6 @@ class _MemoEditorState extends State<_MemoEditor> {
               for (var i = 0; i < _todos.length; i++)
                 Row(
                   children: [
-                    const Icon(Icons.check_box_outline_blank,
-                        size: 20, color: Colors.black38),
-                    const SizedBox(width: 6),
                     Expanded(
                       child: TextField(
                         controller: _todoCtrls[i],

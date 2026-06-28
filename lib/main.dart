@@ -73,7 +73,7 @@ void main() async {
         if (DesktopTrayService.isWindows) {
           desktopTray.onWindowShown = () => c.refreshDiscovery();
           desktopTray.init();
-          HotkeyService.instance.start(() => desktopTray.showWindow());
+          HotkeyService.instance.start(() => desktopTray.toggleWindow());
         }
 
           return c;

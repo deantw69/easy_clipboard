@@ -66,6 +66,18 @@ class DesktopTrayService with TrayListener, WindowListener {
     onWindowShown?.call();
   }
 
+  /// 全域快捷鍵用:在前景時隱藏到系統匣,否則叫到最前面(一次呼出一次隱藏)。
+  Future<void> toggleWindow() async {
+    final visible = await windowManager.isVisible();
+    final minimized = await windowManager.isMinimized();
+    final focused = await windowManager.isFocused();
+    if (visible && !minimized && focused) {
+      await windowManager.hide();
+    } else {
+      await showWindow();
+    }
+  }
+
   Future<void> _exitApp() async {
     await windowManager.setPreventClose(false);
     trayManager.removeListener(this);

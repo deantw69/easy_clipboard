@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:path_provider/path_provider.dart';
 
-/// 全域快捷鍵(僅 Windows):在任何地方按下即把主視窗叫到最前面。
+/// 全域快捷鍵(僅 Windows):在任何地方按下即切換主視窗顯示/隱藏(一次呼出一次隱藏)。
 ///
 /// 設定值持久化於 App 支援目錄的 `hotkey.json`(沿用 identity / last_target /
 /// last_tab 的「檔案存 appSupport」pattern,不寫登錄)。

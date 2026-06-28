@@ -72,6 +72,13 @@
 - `main.dart` 在 `runApp()` 前呼叫 `DesktopTrayService.ensureInitialized()` 初始化 window_manager。
 - 視窗還原時會觸發 `AppController.refreshDiscovery()` 立即重新掃描 mDNS。
 
+## Windows 全域快捷鍵(呼出視窗)
+- 實作在 `lib/core/hotkey_service.dart`(`HotkeyService.instance` 單例),僅 Windows 啟用。套件 `hotkey_manager`(federated,Windows 端用 `RegisterHotKey` Win32 API,系統範圍 `HotKeyScope.system`,不需前景即可觸發)。
+- 預設快捷鍵 `Ctrl+Alt+C`;設定值持久化於 appSupport 的 `hotkey.json`(沿用 identity/last_target/last_tab 的「檔案存 appSupport」pattern,以 `HotKey.toJson/fromJson` 序列化,不寫登錄)。
+- 觸發後呼叫 `DesktopTrayService.showWindow()`(原 `_showWindow` 已開為 public,與系統匣點擊共用「還原+show+focus」)。
+- `main.dart` 在 Windows 區塊 `desktopTray.init()` 後 `HotkeyService.instance.start(() => desktopTray.showWindow())`,`start()` 內先 `unregisterAll()` 清掉 hot reload 殘留。
+- 設定對話框(`home_page.dart` 的 `_SettingsDialog`)新增「呼出視窗快捷鍵」項,用 `HotKeyRecorder` 錄製(`_HotKeyRecorderDialog`,要求至少一個修飾鍵才可儲存),`HotkeyService.update` 取消舊的→註冊新的→存檔,即時生效。
+
 ## mDNS 探索(桌面端)
 - 桌面端（Windows / macOS）每 15 秒自動呼叫 `_discovery.refresh()` 重新掃描，解決 iOS 切背景再回來後桌面端找不到的問題。
 - 定時器在 `AppController.init()` 中建立，`dispose()` 時取消。

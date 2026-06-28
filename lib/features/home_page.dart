@@ -4,12 +4,14 @@ import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app_controller.dart';
 import '../core/autostart.dart';
+import '../core/hotkey_service.dart';
 import '../core/models.dart';
 import '../memos/memo_store.dart';
 
@@ -29,7 +31,7 @@ class HomePage extends StatelessWidget {
             ? 'EasyClipboard'
             : '${c.local!.name} · ${c.local!.platform}'),
         actions: [
-          if (AutostartService.supported)
+          if (AutostartService.supported || HotkeyService.supported)
             IconButton(
               icon: const Icon(Icons.settings),
               tooltip: '設定',
@@ -77,6 +79,7 @@ class _SettingsDialog extends StatefulWidget {
 class _SettingsDialogState extends State<_SettingsDialog> {
   bool? _autostart;
   bool _busy = false;
+  HotKey? _hotKey;
 
   @override
   void initState() {
@@ -84,6 +87,19 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     AutostartService.isEnabled().then((v) {
       if (mounted) setState(() => _autostart = v);
     });
+    if (HotkeyService.supported) {
+      _hotKey = HotkeyService.instance.current;
+    }
+  }
+
+  Future<void> _changeHotKey() async {
+    final picked = await showDialog<HotKey>(
+      context: context,
+      builder: (_) => _HotKeyRecorderDialog(initial: _hotKey),
+    );
+    if (picked == null) return;
+    await HotkeyService.instance.update(picked);
+    if (mounted) setState(() => _hotKey = HotkeyService.instance.current);
   }
 
   Future<void> _toggle(bool value) async {
@@ -107,17 +123,108 @@ class _SettingsDialogState extends State<_SettingsDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('設定'),
-      content: SwitchListTile(
-        contentPadding: EdgeInsets.zero,
-        title: const Text('開機自動啟動'),
-        subtitle: const Text('登入系統時自動開啟 EasyClipboard'),
-        value: _autostart ?? false,
-        onChanged: (_autostart == null || _busy) ? null : _toggle,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (AutostartService.supported)
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('開機自動啟動'),
+              subtitle: const Text('登入系統時自動開啟 EasyClipboard'),
+              value: _autostart ?? false,
+              onChanged: (_autostart == null || _busy) ? null : _toggle,
+            ),
+          if (HotkeyService.supported && _hotKey != null)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('呼出視窗快捷鍵'),
+              subtitle: Text(_hotKeyLabel(_hotKey!)),
+              trailing: TextButton(
+                onPressed: _changeHotKey,
+                child: const Text('變更'),
+              ),
+            ),
+        ],
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('關閉'),
+        ),
+      ],
+    );
+  }
+}
+
+/// 把 [HotKey] 轉成可讀標籤,例如 `Ctrl + Alt + C`。
+String _hotKeyLabel(HotKey h) {
+  String mod(HotKeyModifier m) => switch (m) {
+        HotKeyModifier.control => 'Ctrl',
+        HotKeyModifier.alt => 'Alt',
+        HotKeyModifier.shift => 'Shift',
+        HotKeyModifier.meta => 'Win',
+        HotKeyModifier.capsLock => 'CapsLock',
+        HotKeyModifier.fn => 'Fn',
+      };
+  final parts = [...(h.modifiers ?? const []).map(mod)];
+  var keyName = h.logicalKey.keyLabel;
+  if (keyName.isEmpty) keyName = h.physicalKey.debugName ?? '?';
+  parts.add(keyName);
+  return parts.join(' + ');
+}
+
+/// 錄製快捷鍵的小對話框。要求至少一個修飾鍵(Ctrl/Alt/Shift/Win)才可儲存。
+class _HotKeyRecorderDialog extends StatefulWidget {
+  final HotKey? initial;
+  const _HotKeyRecorderDialog({this.initial});
+
+  @override
+  State<_HotKeyRecorderDialog> createState() => _HotKeyRecorderDialogState();
+}
+
+class _HotKeyRecorderDialogState extends State<_HotKeyRecorderDialog> {
+  HotKey? _recorded;
+
+  bool get _valid =>
+      _recorded != null && (_recorded!.modifiers?.isNotEmpty ?? false);
+
+  @override
+  Widget build(BuildContext context) {
+    final preview = _recorded ?? widget.initial;
+    return AlertDialog(
+      title: const Text('設定快捷鍵'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('直接按下想要的組合鍵(需含 Ctrl / Alt / Shift / Win)'),
+          const SizedBox(height: 16),
+          HotKeyRecorder(
+            initalHotKey: widget.initial,
+            onHotKeyRecorded: (h) => setState(() => _recorded = h),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            preview == null ? '尚未錄製' : _hotKeyLabel(preview),
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          if (_recorded != null && !_valid)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text(
+                '至少要有一個修飾鍵',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        TextButton(
+          onPressed: _valid ? () => Navigator.pop(context, _recorded) : null,
+          child: const Text('儲存'),
         ),
       ],
     );

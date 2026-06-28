@@ -13,6 +13,7 @@ import 'alarm/notification_service.dart';
 import 'alarm/timer_repository.dart';
 import 'app_controller.dart';
 import 'core/desktop_tray_service.dart';
+import 'core/hotkey_service.dart';
 import 'core/share_handler.dart';
 import 'features/home_page.dart';
 import 'features/root_page.dart';
@@ -72,6 +73,7 @@ void main() async {
         if (DesktopTrayService.isWindows) {
           desktopTray.onWindowShown = () => c.refreshDiscovery();
           desktopTray.init();
+          HotkeyService.instance.start(() => desktopTray.showWindow());
         }
 
           return c;

@@ -56,7 +56,8 @@ class DesktopTrayService with TrayListener, WindowListener {
     await trayManager.setContextMenu(menu);
   }
 
-  Future<void> _showWindow() async {
+  /// 把主視窗叫到最前面(系統匣點擊、全域快捷鍵共用)。
+  Future<void> showWindow() async {
     if (await windowManager.isMinimized()) {
       await windowManager.restore();
     }
@@ -78,7 +79,7 @@ class DesktopTrayService with TrayListener, WindowListener {
   // ---- TrayListener ----
 
   @override
-  void onTrayIconMouseDown() => _showWindow();
+  void onTrayIconMouseDown() => showWindow();
 
   @override
   void onTrayIconRightMouseDown() => trayManager.popUpContextMenu();
@@ -87,7 +88,7 @@ class DesktopTrayService with TrayListener, WindowListener {
   void onTrayMenuItemClick(MenuItem menuItem) {
     switch (menuItem.key) {
       case 'show':
-        _showWindow();
+        showWindow();
       case 'exit':
         _exitApp();
     }

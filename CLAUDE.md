@@ -26,6 +26,7 @@
 - 收合:卡片右上角(原刪除鈕位置)為收合/展開鈕,僅有待辦時顯示;收合只隱藏待辦、保留標題。收合狀態存 `_MemosPageState._collapsed`(只存本機記憶體,**不持久化、不同步**)。標題列(文字+收合鈕)與待辦列分開,待辦列全寬使複製鈕貼齊右側。
 - 分頁切換記憶:`root_page.dart` 把 index 寫入 appSupport 的 `last_tab` 檔(沿用 last_target pattern),各裝置分開記,啟動還原。
 - iOS 分享**全為網址**時,`runShareFlow`(`home_page.dart`)先跳「加入備忘錄／傳到裝置」對話框;選備忘錄則 `_addUrlsToMemo` 跳 memo picker(選現有或 `c.memos.add()` 新建),把 URL 以 `MemoTodo.create` 加為待辦。
+- **重設並重新同步**:本機資料被污染(重裝前未同步、又在舊狀態上編輯/刪除過)時的救援。設定對話框(`home_page.dart` `_SettingsDialog`,**全平台顯示**)的「重設備忘錄並重新同步」→ `AppController.resetMemosAndResync()`:先 `MemoStore.clearLocal()`**整包清空(連墓碑一起清)**,再 `syncMemosWithAll()` 純拉回。原理:空清單在 LWW 完全不參與(不像「刪除」會留帶新時間戳的墓碑反向覆蓋對端),故結果 100% 以其他裝置為準。`clearLocal()` 刻意**不呼叫** `onLocalChange`(空清單即使被推出,對端 `mergeJson` 也不刪資料,無副作用)。前提:來源裝置需開著且同網,否則本機被清空後拉不回。
 
 ## macOS 建置
 - 編譯 macOS release 版後，**一律**把產出的 `.app` 複製一份到使用者的下載資料夾，方便取用：

@@ -19,7 +19,9 @@ import '../memos/memo_store.dart';
 bool get _isDesktop =>
     Platform.isMacOS || Platform.isWindows || Platform.isLinux;
 
-/// 第一頁:附近的裝置清單。點選裝置即「連上」並進入該裝置的傳輸頁。
+/// 第一頁:上半「附近的裝置」清單、下半「收到的內容」,各佔一半。
+/// 收到的內容(`c.received`)本就全域不分裝置,故統一放第一頁。
+/// 點裝置:手機跳「傳送圖片/影片 或 剪貼簿」選單;桌面照舊進第二頁傳輸頁。
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
@@ -46,21 +48,114 @@ class HomePage extends StatelessWidget {
           : Column(
               children: [
                 if (Platform.isIOS) const _IosNotice(),
-                _SectionTitle('附近的裝置 (${c.devices.length})'),
+                // 上半:附近的裝置(各佔一半)
                 Expanded(
-                  child: c.devices.isEmpty
-                      ? const Center(child: Text('搜尋中… 確認在同一個 Wi-Fi'))
-                      : ListView(
-                          children: [
-                            for (final d in c.devices)
-                              _DeviceTile(device: d),
-                          ],
-                        ),
+                  child: Column(
+                    children: [
+                      _SectionTitle('附近的裝置 (${c.devices.length})'),
+                      Expanded(
+                        child: c.devices.isEmpty
+                            ? const Center(
+                                child: Text('搜尋中… 確認在同一個 Wi-Fi'))
+                            : ListView(
+                                children: [
+                                  for (final d in c.devices)
+                                    _DeviceTile(device: d),
+                                ],
+                              ),
+                      ),
+                    ],
+                  ),
                 ),
+                const Divider(height: 1),
+                // 下半:收到的內容(各佔一半)
+                const Expanded(child: _ReceivedSection()),
               ],
             ),
     );
   }
+}
+
+/// 「收到的內容」整區:標題+數量+清除鈕+收到清單(空時顯示提示)。
+/// 從舊第二頁搬來第一頁,手機/桌面共用。
+class _ReceivedSection extends StatelessWidget {
+  const _ReceivedSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.watch<AppController>();
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text('收到的內容 (${c.received.length})',
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+              ),
+              if (c.received.isNotEmpty)
+                TextButton.icon(
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  label: const Text('清除'),
+                  onPressed: () => _confirmClearReceived(context, c),
+                ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: c.received.isEmpty
+              ? const Center(child: Text('尚無收到的內容'))
+              : ListView(
+                  children: [
+                    for (final r in c.received) _ReceivedTile(item: r),
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 手機版:點裝置後跳出的傳送選單(傳送圖片/影片 或 傳送剪貼簿)。
+Future<void> _showSendSheet(BuildContext context, DeviceInfo device) async {
+  final c = context.read<AppController>();
+  await showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    builder: (ctx) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: Text('傳送到 ${device.name}',
+                style: const TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.bold)),
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_library),
+            title: const Text('傳送圖片 / 影片'),
+            onTap: () async {
+              Navigator.pop(ctx);
+              final path = await _pickMediaPath();
+              if (path == null || !context.mounted) return;
+              await _sendWithProgress(context, c, device, path);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.content_paste),
+            title: const Text('傳送剪貼簿'),
+            onTap: () {
+              Navigator.pop(ctx);
+              c.sendClipboard(device);
+            },
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 /// 設定對話框:目前提供「開機自動啟動」開關(僅桌面平台)。
@@ -358,14 +453,17 @@ class _DeviceTile extends StatelessWidget {
       title: Text(device.name),
       subtitle: Text('${device.platform} · ${device.host}:${device.port}'),
       trailing: const Icon(Icons.chevron_right),
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => DevicePage(device: device)),
-      ),
+      // 手機:跳傳送選單;桌面:照舊進第二頁(保留拖曳/⌘Ctrl+V)。
+      onTap: () => _isDesktop
+          ? Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => DevicePage(device: device)),
+            )
+          : _showSendSheet(context, device),
     );
   }
 }
 
-/// 第二頁:已連上某裝置。上半部為傳送操作,下半部為收到的內容。
+/// 第二頁(僅桌面):已連上某裝置的傳送頁。收到的內容已移至第一頁。
 ///
 /// 桌面額外支援:Cmd/Ctrl+V 直接傳出剪貼簿、拖曳圖片/影片到視窗放開即傳出。
 class DevicePage extends StatelessWidget {
@@ -386,33 +484,8 @@ class DevicePage extends StatelessWidget {
         const _SectionTitle('傳送'),
         _SendActions(device: device),
         if (_isDesktop) const _DesktopHint(),
-        const Divider(height: 1),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text('收到的內容 (${c.received.length})',
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
-              ),
-              if (c.received.isNotEmpty)
-                TextButton.icon(
-                  icon: const Icon(Icons.delete_outline, size: 18),
-                  label: const Text('清除'),
-                  onPressed: () => _confirmClearReceived(context, c),
-                ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: c.received.isEmpty
-              ? const Center(child: Text('尚無收到的內容'))
-              : ListView(
-                  children: [
-                    for (final r in c.received) _ReceivedTile(item: r),
-                  ],
-                ),
-        ),
+        // 撐滿剩餘空間,讓拖曳區涵蓋整個視窗。
+        const Expanded(child: SizedBox.expand()),
       ],
     );
 

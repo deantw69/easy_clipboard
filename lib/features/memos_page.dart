@@ -170,7 +170,9 @@ class _MemoCard extends StatelessWidget {
                 ),
                 if (!collapsed)
                   for (final todo in memo.todos)
-                    Padding(
+                    Builder(builder: (context) {
+                      final isUrl = _isUrl(todo.text);
+                      return Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: Row(
                         children: [
@@ -193,7 +195,6 @@ class _MemoCard extends StatelessWidget {
                           Expanded(
                             child: Builder(
                               builder: (_) {
-                                final isUrl = _isUrl(todo.text);
                                 final baseStyle = TextStyle(
                                   color:
                                       isUrl ? Colors.blue.shade700 : Colors.black87,
@@ -220,7 +221,7 @@ class _MemoCard extends StatelessWidget {
                             ),
                           ),
                           // 只有網址才顯示右側複製鈕。
-                          if (_isUrl(todo.text)) ...[
+                          if (isUrl) ...[
                             const SizedBox(width: 6),
                             IconButton(
                               icon: const Icon(Icons.copy,
@@ -244,7 +245,8 @@ class _MemoCard extends StatelessWidget {
                           ],
                         ],
                       ),
-                    ),
+                    );
+                    }),
               ],
             ),
           ),

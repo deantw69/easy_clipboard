@@ -11,7 +11,7 @@
 
 ## 跨裝置備忘錄(Memo Sync)
 - 獨立「備忘錄」分頁,與剪貼簿功能在同一視窗以底部 `NavigationBar` 切換(`lib/features/root_page.dart`,`home:` 由 main 指向 `RootPage`)。
-- 資料層 `lib/memos/memo_store.dart`:`Memo`(id / text / todos / updatedAt / deleted)、`MemoTodo`、`MemoStore extends ChangeNotifier`。持久化為 appSupport 下的 `memos.json`(沿用 identity / last_target 的「檔案存 appSupport」pattern,不引資料庫)。
+- 資料層 `lib/memos/memo_store.dart`:`Memo`(id / text / todos / updatedAt / deleted)、`MemoTodo`、`MemoStore extends ChangeNotifier`。持久化為 `memos.json`(不引資料庫)。**桌面(macOS/Windows)存在 `~/Downloads/EasyClipboard/memos.json`**(與接收圖片同資料夾),不放 appSupport——macOS 的 appSupport 是沙盒 Container,重裝 App 會被清掉;Downloads 靠 entitlement `files.downloads.read-write` 可寫且重裝保留。iOS 等其他平台仍存 appSupport(重裝必清,靠區網同步補回)。`MemoStore.load()` 開頭 `_migrateFromAppSupport()` 會把舊 appSupport 的 `memos.json` 自動搬到新位置(只搬一次、新位置已有檔則跳過)。
 - 同步為**雙向合併**(非一次性傳送):Last-Write-Wins 比 `updatedAt`(epoch ms),刪除用 `deleted=true` 墓碑保留避免復活。
 - 協定:HTTP `POST /memos/sync`(`lan_transport.dart`),body 為發起方完整清單 JSON,接收端 `mergeJson` 後回傳自己的完整清單,一次往返雙方收斂。transport 介面新增 `syncMemos` 與 `start(...onMemoSync)`。
 - 觸發點(`AppController.syncMemosWithAll`,`_syncing` 去抖):discovery onChanged、桌面 15 秒 timer、回前景、本地編輯(`MemoStore.onLocalChange`)。`mergeJson` 內**不可**再呼叫 `onLocalChange`,否則兩台無限互推。

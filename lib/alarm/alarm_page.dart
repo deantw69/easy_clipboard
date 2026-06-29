@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import 'alarm_group.dart';
 import 'alarm_services.dart';
 import 'duration_picker.dart';
 import 'timer_state.dart';
@@ -38,15 +40,36 @@ class _AlarmPageState extends State<AlarmPage> with WidgetsBindingObserver {
     super.initState();
     _services = context.read<AlarmServices>();
     WidgetsBinding.instance.addObserver(this);
+    _subscribe();
+    AlarmGroup.instance.addListener(_onGroupChanged);
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _onTick());
+  }
+
+  /// 訂閱目前群組代碼對應的 Firestore document。
+  void _subscribe() {
     _sub = _services.repository
         .watch()
         .listen((e) => _onState(e.state, fromCache: e.fromCache));
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _onTick());
+  }
+
+  /// 群組代碼變更:切到新 document、重訂閱、清掉舊群組的殘留(避免舊倒數的鈴/通知還響)。
+  Future<void> _onGroupChanged() async {
+    _services.repository.setTimerId(AlarmGroup.instance.code);
+    await _sub?.cancel();
+    // 取消舊群組殘留的排程通知 / 響鈴 / 動態島,並重置本輪觸發旗標。
+    await _services.notifications.cancelAll();
+    await _services.alarm.stop();
+    await _services.liveActivity.end(immediate: true);
+    _scheduledFor = null;
+    _firedThisRound = false;
+    if (mounted) setState(() => _state = TimerState.initial());
+    _subscribe();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    AlarmGroup.instance.removeListener(_onGroupChanged);
     _sub?.cancel();
     _ticker?.cancel();
     // alarm / menuBar 為 App 生命週期共用單例(Provider 持有),此處不 dispose。
@@ -249,6 +272,57 @@ class _AlarmPageState extends State<AlarmPage> with WidgetsBindingObserver {
     return sameDay ? time : '${local.month}/${local.day} $time';
   }
 
+  /// 檢視 / 複製 / 變更群組代碼。相同代碼的裝置共用同一筆倒數。
+  Future<void> _editGroupCode() async {
+    final controller = TextEditingController(text: AlarmGroup.instance.code);
+    final saved = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('群組代碼'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '在你的每台裝置輸入「相同代碼」即可共用同一個倒數;不同代碼互不影響。',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              autocorrect: false,
+              decoration: InputDecoration(
+                labelText: '代碼',
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  tooltip: '複製',
+                  icon: const Icon(Icons.copy),
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: controller.text));
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      const SnackBar(content: Text('已複製代碼')),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('儲存'),
+          ),
+        ],
+      ),
+    );
+    if (saved != null) await AlarmGroup.instance.setCode(saved);
+  }
+
   Future<void> _pickDuration() async {
     final picked = await DurationPickerSheet.show(
       context,
@@ -279,6 +353,16 @@ class _AlarmPageState extends State<AlarmPage> with WidgetsBindingObserver {
     }
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('鬧鐘'),
+        actions: [
+          IconButton(
+            tooltip: '群組代碼',
+            icon: const Icon(Icons.group_work_outlined),
+            onPressed: _editGroupCode,
+          ),
+        ],
+      ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

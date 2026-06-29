@@ -2,25 +2,34 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'timer_state.dart';
 
-/// 封裝對 Firestore 中單一共用計時器 document 的讀寫與即時監聽。
+/// 封裝對 Firestore 中共用計時器 document 的讀寫與即時監聽。
 ///
-/// 現階段使用固定的 [timerId]("shared"),所有裝置共用同一筆。
-/// 未來擴充多使用者時,只需把 collection 改為 `users/{uid}/timers` 並傳入動態 id。
+/// document 為 `timers/{timerId}`,[timerId] 即「群組代碼」(見 [AlarmGroup]):
+/// 同一個人讓自己多台裝置共用就用同一組代碼,別人各自一組。代碼可在執行期間
+/// 由 [setTimerId] 切換,呼叫端(AlarmPage)需據此重新訂閱 [watch]。
 class TimerRepository {
   TimerRepository({
     FirebaseFirestore? firestore,
-    this.timerId = 'shared',
+    String timerId = 'shared',
     required this.deviceId,
-  }) : _firestore = firestore ?? FirebaseFirestore.instance;
+  })  : _timerId = timerId,
+        _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
-  final String timerId;
+  String _timerId;
+
+  /// 目前群組代碼(對應的 document id)。
+  String get timerId => _timerId;
+
+  /// 切換群組代碼。切換後 [_doc] 即指向新 document;
+  /// 既有的 [watch] 訂閱不會自動轉移,呼叫端需取消後重新訂閱。
+  void setTimerId(String code) => _timerId = code;
 
   /// 本裝置代號,寫入 updatedBy 方便辨識來源。
   final String deviceId;
 
   DocumentReference<Map<String, dynamic>> get _doc =>
-      _firestore.collection('timers').doc(timerId);
+      _firestore.collection('timers').doc(_timerId);
 
   /// 即時監聽共用狀態。document 不存在時回傳初始狀態。
   ///

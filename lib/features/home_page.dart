@@ -32,12 +32,13 @@ class HomePage extends StatelessWidget {
             ? 'EasyClipboard'
             : '${c.local!.name} · ${c.local!.platform}'),
         actions: [
-          if (AutostartService.supported || HotkeyService.supported)
-            IconButton(
-              icon: const Icon(Icons.settings),
-              tooltip: '設定',
-              onPressed: () => showSettingsDialog(context),
-            ),
+          // 設定鈕全平台顯示:桌面有開機自啟/快捷鍵/儲存資料夾,
+          // iOS 也需要進得去「重設備忘錄並重新同步」。
+          IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: '設定',
+            onPressed: () => showSettingsDialog(context),
+          ),
         ],
       ),
       body: !c.ready

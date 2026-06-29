@@ -11,7 +11,7 @@
 
 ## 跨裝置備忘錄(Memo Sync)
 - 獨立「備忘錄」分頁,與剪貼簿功能在同一視窗以底部 `NavigationBar` 切換(`lib/features/root_page.dart`,`home:` 由 main 指向 `RootPage`)。
-- 資料層 `lib/memos/memo_store.dart`:`Memo`(id / text / todos / updatedAt / deleted)、`MemoTodo`、`MemoStore extends ChangeNotifier`。持久化為 `memos.json`(不引資料庫)。**桌面(macOS/Windows)存在 `~/Downloads/EasyClipboard/memos.json`**(與接收圖片同資料夾),不放 appSupport——macOS 的 appSupport 是沙盒 Container,重裝 App 會被清掉;Downloads 靠 entitlement `files.downloads.read-write` 可寫且重裝保留。iOS 等其他平台仍存 appSupport(重裝必清,靠區網同步補回)。`MemoStore.load()` 開頭 `_migrateFromAppSupport()` 會把舊 appSupport 的 `memos.json` 自動搬到新位置(只搬一次、新位置已有檔則跳過)。
+- 資料層 `lib/memos/memo_store.dart`:`Memo`(id / text / todos / updatedAt / deleted)、`MemoTodo`、`MemoStore extends ChangeNotifier`。持久化為 `memos.json`(不引資料庫)。**桌面(macOS/Windows)預設存在 `~/Downloads/EasyClipboard/memos.json`**(與接收圖片同資料夾,使用者可改選,見「自訂儲存資料夾」),不放 appSupport——macOS 的 appSupport 是沙盒 Container,重裝 App 會被清掉;Downloads 靠 entitlement `files.downloads.read-write` 可寫且重裝保留。iOS 等其他平台仍存 appSupport(重裝必清,靠區網同步補回)。`MemoStore.load()` 開頭 `_migrateFromAppSupport()` 會把舊 appSupport 的 `memos.json` 自動搬到新位置(只搬一次、新位置已有檔則跳過)。
 - 同步為**雙向合併**(非一次性傳送):Last-Write-Wins 比 `updatedAt`(epoch ms),刪除用 `deleted=true` 墓碑保留避免復活。
 - 協定:HTTP `POST /memos/sync`(`lan_transport.dart`),body 為發起方完整清單 JSON,接收端 `mergeJson` 後回傳自己的完整清單,一次往返雙方收斂。transport 介面新增 `syncMemos` 與 `start(...onMemoSync)`。
 - 觸發點(`AppController.syncMemosWithAll`,`_syncing` 去抖):discovery onChanged、桌面 15 秒 timer、回前景、本地編輯(`MemoStore.onLocalChange`)。`mergeJson` 內**不可**再呼叫 `onLocalChange`,否則兩台無限互推。
@@ -82,6 +82,14 @@
 ## mDNS 探索(桌面端)
 - 桌面端（Windows / macOS）每 15 秒自動呼叫 `_discovery.refresh()` 重新掃描，解決 iOS 切背景再回來後桌面端找不到的問題。
 - 定時器在 `AppController.init()` 中建立，`dispose()` 時取消。
+
+## 自訂儲存資料夾(桌面 macOS / Windows)
+- 共用服務 `lib/core/storage_location.dart`(`StorageLocation.instance` 單例 extends ChangeNotifier),統一管理桌面資料(`memos.json` + 接收圖片)落地位置。`memo_store._dataDir()` 與 `lan_transport._saveDir()`(macOS/Windows 分支)都改呼叫 `baseDir()`,兩者落在同一資料夾。
+- 預設 `baseDir()` 仍是 `Downloads/EasyClipboard`(`defaultDir()`);使用者可在設定改選。自訂路徑以純文字存 appSupport 的 `storage_dir`(沿用 identity/last_target/hotkey 的 pattern),`main()` 在 `MemoStore().load()` **之前** `await StorageLocation.instance.load()`。
+- **直接使用所選資料夾**(不再多包一層 EasyClipboard)。切換(`setPath`)時把舊資料夾內檔案複製到新資料夾,**不覆蓋**同名檔(memos.json 之後仍靠區網同步合併)。傳 `null` 還原預設。
+- `baseDir()` 自帶 try/catch:自訂路徑不可用(外接碟拔除、權限失效)時自動退回 `defaultDir()`,不讓讀寫拋錯。
+- **macOS 沙盒**:`user-selected.read-write` 權限只在本次執行期間有效,重啟後存取先前選的資料夾會被擋。故用 **security-scoped bookmark** 持久化:`MainFlutterWindow.swift` 的 `easy_clipboard/storage_bookmark` channel(`save`/`resolve`/`clear`),bookmark data 存 UserDefaults。`setPath` 時 `save`、`load()` 時 `resolve`(會 `startAccessingSecurityScopedResource` 並以回傳路徑為準),resolve 失敗則 `_customPath=null` 退回預設。Windows 無沙盒、不需 bookmark。
+- 設定入口:`home_page.dart` 的 `_SettingsDialog` 新增「儲存資料夾」ListTile(顯示目前路徑、「變更」鈕用 `FilePicker.getDirectoryPath`;自訂時多顯示「還原預設位置」)。**注意 `file_picker` 11.0.2 是 `FilePicker.getDirectoryPath(...)` 靜態方法,不是 `FilePicker.platform`**。
 
 ## 開機自啟動
 - 設定入口：首頁 AppBar 齒輪圖示 → 設定對話框的「開機自動啟動」開關（僅 macOS / Windows 顯示）。

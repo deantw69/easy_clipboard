@@ -13,6 +13,7 @@ import '../app_controller.dart';
 import '../core/autostart.dart';
 import '../core/hotkey_service.dart';
 import '../core/models.dart';
+import '../core/storage_location.dart';
 import '../memos/memo_store.dart';
 
 bool get _isDesktop =>
@@ -80,6 +81,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
   bool? _autostart;
   bool _busy = false;
   HotKey? _hotKey;
+  String? _storagePath;
 
   @override
   void initState() {
@@ -89,6 +91,43 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     });
     if (HotkeyService.supported) {
       _hotKey = HotkeyService.instance.current;
+    }
+    if (StorageLocation.supported) {
+      _refreshStoragePath();
+    }
+  }
+
+  Future<void> _refreshStoragePath() async {
+    final dir = await StorageLocation.instance.baseDir();
+    if (mounted) setState(() => _storagePath = dir.path);
+  }
+
+  Future<void> _changeStorageDir() async {
+    final picked = await FilePicker.getDirectoryPath(
+      dialogTitle: '選擇儲存資料夾',
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await StorageLocation.instance.setPath(picked);
+      await _refreshStoragePath();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已變更儲存資料夾,既有資料已複製過去')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _resetStorageDir() async {
+    setState(() => _busy = true);
+    try {
+      await StorageLocation.instance.setPath(null);
+      await _refreshStoragePath();
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -142,6 +181,29 @@ class _SettingsDialogState extends State<_SettingsDialog> {
               trailing: TextButton(
                 onPressed: _changeHotKey,
                 child: const Text('變更'),
+              ),
+            ),
+          if (StorageLocation.supported)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('儲存資料夾'),
+              subtitle: Text(
+                _storagePath ?? '讀取中…',
+                style: const TextStyle(fontSize: 12),
+              ),
+              isThreeLine: _storagePath != null && _storagePath!.length > 30,
+              trailing: TextButton(
+                onPressed: _busy ? null : _changeStorageDir,
+                child: const Text('變更'),
+              ),
+            ),
+          if (StorageLocation.supported &&
+              StorageLocation.instance.customPath != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: _busy ? null : _resetStorageDir,
+                child: const Text('還原預設位置'),
               ),
             ),
         ],
@@ -701,7 +763,9 @@ Future<void> showReceivedImageDialog(
               c.saveReceivedImageToGallery(item);
             }
           },
-          child: Text(c.isDesktop ? '在 Finder 顯示' : '存進相簿'),
+          child: Text(c.isDesktop
+              ? (Platform.isWindows ? '在檔案總管顯示' : '在 Finder 顯示')
+              : '存進相簿'),
         ),
         TextButton(
           onPressed: () => Navigator.pop(ctx),

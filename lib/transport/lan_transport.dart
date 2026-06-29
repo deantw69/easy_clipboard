@@ -10,6 +10,7 @@ import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:uuid/uuid.dart';
 
 import '../core/models.dart';
+import '../core/storage_location.dart';
 import 'transport.dart';
 
 /// 區網直傳:接收端跑 shelf HTTP server,傳送端用 dio 串流上傳。
@@ -254,10 +255,14 @@ class LanTransport implements Transport {
   /// 對外公開接收檔案的落地目錄,供清除暫存時掃描。
   static Future<Directory> receivedDir() => _saveDir();
 
-  /// 接收檔案的落地目錄。桌面用 Downloads,行動裝置用 App 文件目錄。
+  /// 接收檔案的落地目錄。桌面用 StorageLocation(預設 Downloads/EasyClipboard,
+  /// 可由使用者改選),行動裝置用 App 文件目錄。
   static Future<Directory> _saveDir() async {
+    if (Platform.isMacOS || Platform.isWindows) {
+      return StorageLocation.instance.baseDir();
+    }
     Directory base;
-    if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
+    if (Platform.isLinux) {
       base = await getDownloadsDirectory() ??
           await getApplicationDocumentsDirectory();
     } else {

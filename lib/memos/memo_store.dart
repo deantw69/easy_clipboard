@@ -231,6 +231,20 @@ class MemoStore extends ChangeNotifier {
     return idx < 0 ? null : _memos[idx];
   }
 
+  /// 清空本機所有備忘錄(連墓碑一併移除),寫入空清單。
+  ///
+  /// 供「重設並從其他裝置重新拉取」使用:清空後本機**不帶任何墓碑或時間戳**,
+  /// 因此隨後的同步只會從對端「拉回」資料,而不會把本機被污染的舊狀態推回去
+  /// (墓碑帶新時間戳會反向覆蓋對端,空清單則完全不參與 LWW)。
+  ///
+  /// 刻意**不呼叫** [onLocalChange]:一來避免把清空當成本地變更而觸發推送,
+  /// 二來空清單即使被推出,對端 [mergeJson] 也不會刪掉任何資料,無副作用。
+  Future<void> clearLocal() async {
+    _memos.clear();
+    await _save();
+    notifyListeners();
+  }
+
   // ---- 同步 ----
 
   String exportJson() =>

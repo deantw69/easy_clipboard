@@ -141,6 +141,47 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     if (mounted) setState(() => _hotKey = HotkeyService.instance.current);
   }
 
+  Future<void> _resetAndResync() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('重設備忘錄並重新同步'),
+        content: const Text(
+          '會清空「這台裝置」上的所有備忘錄,改從其他裝置重新拉取,以其他裝置為準還原。\n\n'
+          '適用於本機資料異常(例如重裝前未同步、又在舊狀態上編輯過)時。\n\n'
+          '請先確認:要當作來源的裝置已開啟、且與本機在同一區網,'
+          '否則本機會被清空且拉不回資料。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('重設並同步'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final n = await context.read<AppController>().resetMemosAndResync();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(n > 0
+                ? '已重設,從 $n 台裝置重新同步'
+                : '已重設,但目前找不到其他裝置可拉取(本機暫為空)'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _toggle(bool value) async {
     setState(() => _busy = true);
     try {
@@ -206,6 +247,18 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                 child: const Text('還原預設位置'),
               ),
             ),
+          const Divider(),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.sync_problem, color: Colors.redAccent),
+            title: const Text('重設備忘錄並重新同步'),
+            subtitle: const Text(
+              '清空本機備忘錄,改以其他裝置為準重新拉取',
+              style: TextStyle(fontSize: 12),
+            ),
+            isThreeLine: true,
+            onTap: _busy ? null : _resetAndResync,
+          ),
         ],
       ),
       actions: [

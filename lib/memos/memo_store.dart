@@ -107,13 +107,49 @@ class MemoStore extends ChangeNotifier {
     return list;
   }
 
+  /// 備忘錄資料夾。
+  ///
+  /// 桌面(macOS / Windows)改存「使用者下載資料夾下的 easy_clipboard/」,
+  /// 而非 appSupport——後者在 macOS 是沙盒 Container,重裝 App 會被清掉。
+  /// macOS entitlement 已開 `files.downloads.read-write`,故沙盒下可寫入 Downloads。
+  /// iOS 等其他平台維持 appSupport(重裝必清,改位置也救不了,靠雲端/區網同步補回)。
+  Future<Directory> _dataDir() async {
+    if (Platform.isMacOS || Platform.isWindows) {
+      final downloads = await getDownloadsDirectory();
+      if (downloads != null) {
+        final d = Directory(p.join(downloads.path, 'EasyClipboard'));
+        if (!await d.exists()) await d.create(recursive: true);
+        return d;
+      }
+    }
+    return getApplicationSupportDirectory();
+  }
+
   Future<File> _file() async {
-    final dir = await getApplicationSupportDirectory();
+    final dir = await _dataDir();
     return File(p.join(dir.path, 'memos.json'));
+  }
+
+  /// 把舊版存在 appSupport 的 memos.json 搬到新位置(只搬一次)。
+  /// 新位置已有檔案就跳過,避免覆蓋。
+  Future<void> _migrateFromAppSupport() async {
+    try {
+      if (!(Platform.isMacOS || Platform.isWindows)) return;
+      final newFile = await _file();
+      if (await newFile.exists()) return;
+      final oldDir = await getApplicationSupportDirectory();
+      final oldFile = File(p.join(oldDir.path, 'memos.json'));
+      if (await oldFile.exists()) {
+        await newFile.writeAsString(await oldFile.readAsString());
+      }
+    } catch (_) {
+      // 搬移失敗不阻擋啟動,當作新裝置從空清單開始。
+    }
   }
 
   /// 啟動時載入。
   Future<void> load() async {
+    await _migrateFromAppSupport();
     try {
       final f = await _file();
       if (await f.exists()) {

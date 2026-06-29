@@ -1,0 +1,4 @@
+# Flutter 產生器檔:不做換行碼轉換,避免在 Windows 一直跳 CRLF/LF 變更
+windows/flutter/generated_plugin_registrant.cc -text
+windows/flutter/generated_plugins.cmake -text
+macos/Flutter/GeneratedPluginRegistrant.swift -text

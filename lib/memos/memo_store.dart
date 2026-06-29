@@ -6,6 +6,8 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
+import '../core/storage_location.dart';
+
 /// 備忘錄裡的一筆待辦項目。
 class MemoTodo {
   final String id;
@@ -107,13 +109,39 @@ class MemoStore extends ChangeNotifier {
     return list;
   }
 
+  /// 備忘錄資料夾。
+  ///
+  /// 桌面(macOS / Windows)改存「使用者下載資料夾下的 easy_clipboard/」,
+  /// 而非 appSupport——後者在 macOS 是沙盒 Container,重裝 App 會被清掉。
+  /// macOS entitlement 已開 `files.downloads.read-write`,故沙盒下可寫入 Downloads。
+  /// iOS 等其他平台維持 appSupport(重裝必清,改位置也救不了,靠雲端/區網同步補回)。
+  Future<Directory> _dataDir() => StorageLocation.instance.baseDir();
+
   Future<File> _file() async {
-    final dir = await getApplicationSupportDirectory();
+    final dir = await _dataDir();
     return File(p.join(dir.path, 'memos.json'));
+  }
+
+  /// 把舊版存在 appSupport 的 memos.json 搬到新位置(只搬一次)。
+  /// 新位置已有檔案就跳過,避免覆蓋。
+  Future<void> _migrateFromAppSupport() async {
+    try {
+      if (!(Platform.isMacOS || Platform.isWindows)) return;
+      final newFile = await _file();
+      if (await newFile.exists()) return;
+      final oldDir = await getApplicationSupportDirectory();
+      final oldFile = File(p.join(oldDir.path, 'memos.json'));
+      if (await oldFile.exists()) {
+        await newFile.writeAsString(await oldFile.readAsString());
+      }
+    } catch (_) {
+      // 搬移失敗不阻擋啟動,當作新裝置從空清單開始。
+    }
   }
 
   /// 啟動時載入。
   Future<void> load() async {
+    await _migrateFromAppSupport();
     try {
       final f = await _file();
       if (await f.exists()) {
@@ -201,6 +229,20 @@ class MemoStore extends ChangeNotifier {
   Memo? _byId(String id) {
     final idx = _memos.indexWhere((m) => m.id == id);
     return idx < 0 ? null : _memos[idx];
+  }
+
+  /// 清空本機所有備忘錄(連墓碑一併移除),寫入空清單。
+  ///
+  /// 供「重設並從其他裝置重新拉取」使用:清空後本機**不帶任何墓碑或時間戳**,
+  /// 因此隨後的同步只會從對端「拉回」資料,而不會把本機被污染的舊狀態推回去
+  /// (墓碑帶新時間戳會反向覆蓋對端,空清單則完全不參與 LWW)。
+  ///
+  /// 刻意**不呼叫** [onLocalChange]:一來避免把清空當成本地變更而觸發推送,
+  /// 二來空清單即使被推出,對端 [mergeJson] 也不會刪掉任何資料,無副作用。
+  Future<void> clearLocal() async {
+    _memos.clear();
+    await _save();
+    notifyListeners();
   }
 
   // ---- 同步 ----

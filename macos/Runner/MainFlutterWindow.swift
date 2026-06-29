@@ -50,6 +50,59 @@ class MainFlutterWindow: NSWindow {
       }
     }
 
+    // 自訂儲存資料夾:沙盒下用 security-scoped bookmark 持久化使用者選的資料夾,
+    // 讓 App 重啟後仍能存取(否則 user-selected 權限只在本次執行期間有效)。
+    let bookmarkChannel = FlutterMethodChannel(
+      name: "easy_clipboard/storage_bookmark",
+      binaryMessenger: flutterViewController.engine.binaryMessenger)
+    bookmarkChannel.setMethodCallHandler { call, result in
+      let key = "storage_bookmark"
+      switch call.method {
+      case "save":
+        guard let path = call.arguments as? String else {
+          result(false)
+          return
+        }
+        let url = URL(fileURLWithPath: path)
+        do {
+          let data = try url.bookmarkData(
+            options: .withSecurityScope,
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil)
+          UserDefaults.standard.set(data, forKey: key)
+          _ = url.startAccessingSecurityScopedResource()
+          result(true)
+        } catch {
+          result(false)
+        }
+      case "resolve":
+        guard let data = UserDefaults.standard.data(forKey: key) else {
+          result(nil)
+          return
+        }
+        var stale = false
+        do {
+          let url = try URL(
+            resolvingBookmarkData: data,
+            options: .withSecurityScope,
+            relativeTo: nil,
+            bookmarkDataIsStale: &stale)
+          if url.startAccessingSecurityScopedResource() {
+            result(url.path)
+          } else {
+            result(nil)
+          }
+        } catch {
+          result(nil)
+        }
+      case "clear":
+        UserDefaults.standard.removeObject(forKey: key)
+        result(true)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+
     super.awakeFromNib()
   }
 }

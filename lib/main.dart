@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'alarm/alarm_group.dart';
 import 'alarm/alarm_services.dart';
 import 'alarm/alarm_sound_service.dart';
 import 'alarm/live_activity_service.dart';
@@ -15,6 +16,7 @@ import 'app_controller.dart';
 import 'core/desktop_tray_service.dart';
 import 'core/hotkey_service.dart';
 import 'core/share_handler.dart';
+import 'core/storage_location.dart';
 import 'features/home_page.dart';
 import 'features/root_page.dart';
 import 'firebase_options.dart';
@@ -26,6 +28,9 @@ final desktopTray = DesktopTrayService();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await DesktopTrayService.ensureInitialized();
+  await StorageLocation.instance.load();
+  // 群組代碼要先有 baseDir(桌面存備忘錄同資料夾),故在 StorageLocation 之後載入。
+  await AlarmGroup.instance.load();
   final memoStore = MemoStore()..load();
 
   // 鬧鐘(倒數計時)分頁:Firebase + 通知 + 選單列。
@@ -37,7 +42,10 @@ void main() async {
   final menuBar = MenuBarService();
   await menuBar.init();
   final alarmServices = AlarmServices(
-    repository: TimerRepository(deviceId: alarmDeviceLabel()),
+    repository: TimerRepository(
+      deviceId: alarmDeviceLabel(),
+      timerId: AlarmGroup.instance.code,
+    ),
     notifications: notifications,
     alarm: AlarmSoundService(),
     menuBar: menuBar,

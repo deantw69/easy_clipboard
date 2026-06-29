@@ -112,6 +112,20 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  /// 重設本機備忘錄並從其他裝置重新拉取。
+  ///
+  /// 用於本機資料已被污染(例如重裝前未同步、又在舊狀態上編輯/刪除過)時:
+  /// 先清空本機(不留墓碑、不留時間戳),再向所有可連線裝置同步,
+  /// 結果是純粹「以其他裝置為主」把資料拉回,本機的污染不會反向覆蓋對端。
+  ///
+  /// 回傳同步當下可連線的裝置數;為 0 時代表沒有對端可拉(本機會變空)。
+  Future<int> resetMemosAndResync() async {
+    await memos.clearLocal();
+    final reachable = devices.where((d) => d.isReachable).length;
+    await syncMemosWithAll();
+    return reachable;
+  }
+
   /// App 回到前景時重發通告並重啟探索。
   ///
   /// 解決 mDNS 單向探索失效:iOS 進背景會停止回應查詢,對端(尤其 macOS 的被動

@@ -7,6 +7,7 @@ import 'app_controller.dart';
 import 'core/desktop_tray_service.dart';
 import 'core/hotkey_service.dart';
 import 'core/share_handler.dart';
+import 'core/storage_location.dart';
 import 'features/home_page.dart';
 import 'features/root_page.dart';
 import 'memos/memo_store.dart';
@@ -17,6 +18,7 @@ final desktopTray = DesktopTrayService();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await DesktopTrayService.ensureInitialized();
+  await StorageLocation.instance.load();
   final memoStore = MemoStore()..load();
   runApp(
     MultiProvider(

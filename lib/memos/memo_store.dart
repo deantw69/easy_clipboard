@@ -6,6 +6,8 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
+import '../core/storage_location.dart';
+
 /// 備忘錄裡的一筆待辦項目。
 class MemoTodo {
   final String id;
@@ -113,17 +115,7 @@ class MemoStore extends ChangeNotifier {
   /// 而非 appSupport——後者在 macOS 是沙盒 Container,重裝 App 會被清掉。
   /// macOS entitlement 已開 `files.downloads.read-write`,故沙盒下可寫入 Downloads。
   /// iOS 等其他平台維持 appSupport(重裝必清,改位置也救不了,靠雲端/區網同步補回)。
-  Future<Directory> _dataDir() async {
-    if (Platform.isMacOS || Platform.isWindows) {
-      final downloads = await getDownloadsDirectory();
-      if (downloads != null) {
-        final d = Directory(p.join(downloads.path, 'EasyClipboard'));
-        if (!await d.exists()) await d.create(recursive: true);
-        return d;
-      }
-    }
-    return getApplicationSupportDirectory();
-  }
+  Future<Directory> _dataDir() => StorageLocation.instance.baseDir();
 
   Future<File> _file() async {
     final dir = await _dataDir();

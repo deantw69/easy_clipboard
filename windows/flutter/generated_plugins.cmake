@@ -10,6 +10,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   firebase_core
   flutter_timezone
   gal
+  hotkey_manager_windows
   irondash_engine_context
   nsd_windows
   screen_retriever_windows

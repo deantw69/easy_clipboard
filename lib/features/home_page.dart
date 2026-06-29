@@ -763,7 +763,9 @@ Future<void> showReceivedImageDialog(
               c.saveReceivedImageToGallery(item);
             }
           },
-          child: Text(c.isDesktop ? '在 Finder 顯示' : '存進相簿'),
+          child: Text(c.isDesktop
+              ? (Platform.isWindows ? '在檔案總管顯示' : '在 Finder 顯示')
+              : '存進相簿'),
         ),
         TextButton(
           onPressed: () => Navigator.pop(ctx),

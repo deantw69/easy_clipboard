@@ -50,5 +50,5 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# 本機專用腳本，不進 git
-/scripts/build_windows_release.ps1
+# 本機專用建置腳本,不納入版控
+/scripts/

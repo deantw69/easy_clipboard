@@ -125,6 +125,7 @@ class LanTransport implements Transport {
     DeviceInfo target,
     String filePath, {
     String? mime,
+    int? batchCount,
     void Function(double)? onProgress,
   }) async {
     final file = File(filePath);
@@ -137,6 +138,7 @@ class LanTransport implements Transport {
       fileName: p.basename(filePath),
       sizeBytes: size,
       mime: mime,
+      batchCount: batchCount,
     );
     await _dio.post(
       _url(target, 'file'),

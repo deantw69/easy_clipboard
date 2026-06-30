@@ -66,6 +66,10 @@ class TransferEnvelope {
   /// MIME 類型(盡力而為),例如 image/jpeg、video/mp4、text/plain。
   final String? mime;
 
+  /// 本次屬於同一批(一次選/拖多個檔)的總數;單檔為 null 或 1。
+  /// 接收端據此判斷:批次(>1)時不跳預覽彈窗。
+  final int? batchCount;
+
   const TransferEnvelope({
     required this.id,
     required this.kind,
@@ -74,6 +78,7 @@ class TransferEnvelope {
     this.fileName,
     this.sizeBytes,
     this.mime,
+    this.batchCount,
   });
 
   Map<String, dynamic> toJson() => {
@@ -84,6 +89,7 @@ class TransferEnvelope {
         if (fileName != null) 'fileName': fileName,
         if (sizeBytes != null) 'sizeBytes': sizeBytes,
         if (mime != null) 'mime': mime,
+        if (batchCount != null) 'batchCount': batchCount,
       };
 
   factory TransferEnvelope.fromJson(Map<String, dynamic> j) => TransferEnvelope(
@@ -94,6 +100,7 @@ class TransferEnvelope {
         fileName: j['fileName'] as String?,
         sizeBytes: (j['sizeBytes'] as num?)?.toInt(),
         mime: j['mime'] as String?,
+        batchCount: (j['batchCount'] as num?)?.toInt(),
       );
 }
 

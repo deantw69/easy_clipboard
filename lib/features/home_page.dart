@@ -47,8 +47,6 @@ class HomePage extends StatelessWidget {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                if (Platform.isIOS) const _IosNotice(),
-                // 上半:附近的裝置(各佔一半)
                 Expanded(
                   child: Column(
                     children: [
@@ -1057,22 +1055,6 @@ class _ReceivedTile extends StatelessWidget {
       leading: const Icon(Icons.insert_drive_file),
       title: Text(env.fileName ?? '檔案'),
       subtitle: Text(savedToGallery ? '已存入相簿' : (item.savedPath ?? '')),
-    );
-  }
-}
-
-class _IosNotice extends StatelessWidget {
-  const _IosNotice();
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      color: Colors.amber.withValues(alpha: 0.2),
-      padding: const EdgeInsets.all(8),
-      child: const Text(
-        'iOS 限制:需保持 App 開啟才能收發;剪貼簿須手動按「傳送剪貼簿」。收到圖片時會跳預覽,自行選擇複製到剪貼簿或存進相簿;影片仍直接存入相簿。',
-        style: TextStyle(fontSize: 12),
-      ),
     );
   }
 }

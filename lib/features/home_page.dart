@@ -239,54 +239,6 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     if (mounted) setState(() => _hotKey = HotkeyService.instance.current);
   }
 
-  Future<void> _changeGroupCode() async {
-    final c = context.read<AppController>();
-    final controller = TextEditingController(text: c.groupCode);
-    final result = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('同步群組碼'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              '只有填相同群組碼的裝置才會自動同步備忘錄。\n'
-              '留空 = 與所有同網裝置同步(預設)。',
-              style: TextStyle(fontSize: 12),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              autofocus: true,
-              decoration: const InputDecoration(
-                hintText: '例如:home',
-                border: OutlineInputBorder(),
-              ),
-              onSubmitted: (v) => Navigator.pop(ctx, v),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, controller.text),
-            child: const Text('儲存'),
-          ),
-        ],
-      ),
-    );
-    if (result == null) return;
-    setState(() => _busy = true);
-    try {
-      await c.updateGroupCode(result);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
   Future<void> _toggle(bool value) async {
     setState(() => _busy = true);
     try {
@@ -352,23 +304,6 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                 child: const Text('還原預設位置'),
               ),
             ),
-          Builder(
-            builder: (context) {
-              final code = context.watch<AppController>().groupCode;
-              return ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('同步群組碼'),
-                subtitle: Text(
-                  code.isEmpty ? '未設定(與所有同網裝置同步)' : code,
-                  style: const TextStyle(fontSize: 12),
-                ),
-                trailing: TextButton(
-                  onPressed: _busy ? null : _changeGroupCode,
-                  child: const Text('變更'),
-                ),
-              );
-            },
-          ),
         ],
       ),
       actions: [

@@ -13,7 +13,7 @@ class MainFlutterWindow: NSWindow {
 
     // 開機自啟動:透過 SMAppService 註冊/解除本 App 為登入項目(需 macOS 13+)。
     let channel = FlutterMethodChannel(
-      name: "easy_clipboard/autostart",
+      name: "syncnest/autostart",
       binaryMessenger: flutterViewController.engine.binaryMessenger)
     channel.setMethodCallHandler { call, result in
       switch call.method {
@@ -53,7 +53,7 @@ class MainFlutterWindow: NSWindow {
     // 自訂儲存資料夾:沙盒下用 security-scoped bookmark 持久化使用者選的資料夾,
     // 讓 App 重啟後仍能存取(否則 user-selected 權限只在本次執行期間有效)。
     let bookmarkChannel = FlutterMethodChannel(
-      name: "easy_clipboard/storage_bookmark",
+      name: "syncnest/storage_bookmark",
       binaryMessenger: flutterViewController.engine.binaryMessenger)
     bookmarkChannel.setMethodCallHandler { call, result in
       let key = "storage_bookmark"

@@ -1,4 +1,4 @@
-import 'package:easy_clipboard/core/models.dart';
+import 'package:syncnest/core/models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

@@ -111,7 +111,7 @@ class MemoStore extends ChangeNotifier {
 
   /// 備忘錄資料夾。
   ///
-  /// 桌面(macOS / Windows)改存「使用者下載資料夾下的 easy_clipboard/」,
+  /// 桌面(macOS / Windows)改存「使用者下載資料夾下的 syncnest/」,
   /// 而非 appSupport——後者在 macOS 是沙盒 Container,重裝 App 會被清掉。
   /// macOS entitlement 已開 `files.downloads.read-write`,故沙盒下可寫入 Downloads。
   /// iOS 等其他平台維持 appSupport(重裝必清,改位置也救不了,靠雲端/區網同步補回)。

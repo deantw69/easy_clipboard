@@ -1,13 +1,13 @@
-# easy_clipboard 外部 TestFlight 上架手動步驟
+# SyncNest 外部 TestFlight 上架手動步驟
 
 目標:把 iOS 版發佈到**外部 TestFlight**(Email／公開連結邀請,最多 10000 人),通過一次輕量 Beta App Review。
 
 > 程式端已處理:`Info.plist` 加 `ITSAppUsesNonExemptEncryption=false`(免出口管制問卷)、新增 `ios/Runner/PrivacyInfo.xcprivacy` 並已掛進 Runner target。以下為你需要手動操作的部分。
 
 關鍵資訊:
-- Bundle ID(主 App):`com.philio.easyClipboard`
-- Bundle ID(分享擴充):`com.philio.easyClipboard.Share-Extension`
-- App Group:`group.com.philio.easyClipboard`
+- Bundle ID(主 App):`com.philio.syncNest`
+- Bundle ID(分享擴充):`com.philio.syncNest.Share-Extension`
+- App Group:`group.com.philio.syncNest`
 - Team ID:`6P5WSRHW66`
 - 版本:`1.0.0 (build 1)`
 
@@ -17,10 +17,10 @@
 網址:https://developer.apple.com/account
 
 - [ ] 確認 Team `6P5WSRHW66` 已加入**付費** Apple Developer Program(US$99/年;未付費無法上傳)。
-- [ ] Certificates, IDs & Profiles → **Identifiers** → 篩選 **App Groups**:確認 `group.com.philio.easyClipboard` 存在,沒有就 ➕ 新建(Description 任填、ID 填這串)。
+- [ ] Certificates, IDs & Profiles → **Identifiers** → 篩選 **App Groups**:確認 `group.com.philio.syncNest` 存在,沒有就 ➕ 新建(Description 任填、ID 填這串)。
 - [ ] **Identifiers** → App IDs,確認以下兩個都存在且都關聯了上面那組 App Group:
-  - `com.philio.easyClipboard`(主 App)→ 編輯 → Capabilities 勾 **App Groups** → Configure → 勾 `group.com.philio.easyClipboard`
-  - `com.philio.easyClipboard.Share-Extension`(擴充)→ 同樣勾 App Groups → 同一組
+  - `com.philio.syncNest`(主 App)→ 編輯 → Capabilities 勾 **App Groups** → Configure → 勾 `group.com.philio.syncNest`
+  - `com.philio.syncNest.Share-Extension`(擴充)→ 同樣勾 App Groups → 同一組
   > 用 Xcode 自動簽章時 App ID 會自動建立,但 **App Group 必須先存在**才能正確關聯,否則 archive 簽章失敗。
 
 ## B2. App Store Connect — 建立 App 紀錄
@@ -28,9 +28,9 @@
 
 - [ ] My Apps → ➕ → **New App**
   - Platform:iOS
-  - Name:`Easy Clipboard`(若已被占用需換名)
+  - Name:`SyncNest`(若已被占用需換名)
   - Primary Language:繁體中文(或你要的)
-  - Bundle ID:選 `com.philio.easyClipboard`
+  - Bundle ID:選 `com.philio.syncNest`
   - SKU:任填(例 `easyclipboard001`)
   - User Access:Full
 - [ ]「App 隱私(App Privacy)」外部 TestFlight 不強制完整填,建議先標 **Data Not Collected**(本 App 不蒐集資料、只在區網傳輸)。
@@ -40,8 +40,8 @@
 - [ ] **Runner** target → Signing & Capabilities:
   - Team = `6P5WSRHW66`
   - ✅ Automatically manage signing
-  - 確認 App Groups 內有 `group.com.philio.easyClipboard`
-- [ ] **Share Extension** target → 同樣設 Team、自動簽章、App Groups 勾 `group.com.philio.easyClipboard`。
+  - 確認 App Groups 內有 `group.com.philio.syncNest`
+- [ ] **Share Extension** target → 同樣設 Team、自動簽章、App Groups 勾 `group.com.philio.syncNest`。
 - [ ](選)在 Runner 的 Build Phases → Copy Bundle Resources 確認有 `PrivacyInfo.xcprivacy`(程式已加,正常應已在)。
 
 ## B4. 打包與上傳
@@ -52,7 +52,7 @@
 export PATH="$PATH:$HOME/development/flutter/bin"
 cd /Users/philio/Downloads/easy_clipboard
 flutter build ipa --release
-# 產物:build/ios/ipa/easy_clipboard.ipa
+# 產物:build/ios/ipa/SyncNest.ipa
 ```
 - [ ] 用 **Transporter**(Mac App Store 免費下載)拖入 `.ipa` → Deliver 上傳。
   或 `xcrun altool --upload-app -f build/ios/ipa/*.ipa -t ios -u <Apple ID> -p <App 專用密碼>`。

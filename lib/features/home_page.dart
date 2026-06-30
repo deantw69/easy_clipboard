@@ -141,9 +141,9 @@ Future<void> _showSendSheet(BuildContext context, DeviceInfo device) async {
             title: const Text('傳送圖片 / 影片'),
             onTap: () async {
               Navigator.pop(ctx);
-              final path = await _pickMediaPath();
-              if (path == null || !context.mounted) return;
-              await _sendWithProgress(context, c, device, path);
+              final paths = await _pickMediaPaths();
+              if (paths.isEmpty || !context.mounted) return;
+              await _sendWithProgress(context, c, device, paths);
             },
           ),
           ListTile(
@@ -493,9 +493,9 @@ class _SendActions extends StatelessWidget {
           leading: const Icon(Icons.photo_library),
           title: const Text('傳送圖片 / 影片'),
           onTap: () async {
-            final path = await _pickMediaPath();
-            if (path == null || !context.mounted) return;
-            await _sendWithProgress(context, c, device, path);
+            final paths = await _pickMediaPaths();
+            if (paths.isEmpty || !context.mounted) return;
+            await _sendWithProgress(context, c, device, paths);
           },
         ),
         ListTile(
@@ -755,10 +755,13 @@ Future<void> _sendSharedBatch(BuildContext context, AppController c,
       ),
     ),
   );
+  // 同一批的圖片數量:>1 時接收端不跳彈窗。
+  final imageCount =
+      payloads.where((p) => p.kind == SharedKind.image).length;
   String? error;
   try {
     for (final p in payloads) {
-      await c.sendShared(target, p);
+      await c.sendShared(target, p, batchCount: imageCount);
     }
   } catch (e) {
     error = '$e';
@@ -873,10 +876,9 @@ class _DropZoneState extends State<_DropZone> {
       onDragExited: (_) => setState(() => _dragging = false),
       onDragDone: (detail) async {
         setState(() => _dragging = false);
-        for (final file in detail.files) {
-          if (!context.mounted) return;
-          await _sendWithProgress(context, c, widget.device, file.path);
-        }
+        final paths = [for (final f in detail.files) f.path];
+        if (paths.isEmpty || !context.mounted) return;
+        await _sendWithProgress(context, c, widget.device, paths);
       },
       child: Container(
         decoration: _dragging
@@ -906,24 +908,37 @@ class _DesktopHint extends StatelessWidget {
       );
 }
 
-/// 依平台選取圖片/影片,回傳本機路徑。
-Future<String?> _pickMediaPath() async {
+/// 依平台選取圖片/影片(可多選),回傳本機路徑清單。
+Future<List<String>> _pickMediaPaths() async {
   if (Platform.isIOS || Platform.isAndroid) {
-    final x = await ImagePicker().pickMedia();
-    return x?.path;
+    final xs = await ImagePicker().pickMultipleMedia();
+    return [for (final x in xs) x.path];
   }
-  final res = await FilePicker.pickFiles(type: FileType.media);
-  return res?.files.single.path;
+  final res =
+      await FilePicker.pickFiles(type: FileType.media, allowMultiple: true);
+  if (res == null) return const [];
+  return [
+    for (final f in res.files)
+      if (f.path != null) f.path!,
+  ];
 }
 
+/// 依序傳送一批檔案,並顯示進度。批次(>1)會在每個檔的 envelope 標記
+/// batchCount,讓接收方收多張圖片時不跳彈窗。
 Future<void> _sendWithProgress(BuildContext context, AppController c,
-    DeviceInfo device, String path) async {
+    DeviceInfo device, List<String> paths) async {
+  if (paths.isEmpty) return;
   final progress = ValueNotifier<double>(0);
+  final index = ValueNotifier<int>(0);
   showDialog(
     context: context,
     barrierDismissible: false,
     builder: (_) => AlertDialog(
-      title: const Text('傳送中…'),
+      title: ValueListenableBuilder<int>(
+        valueListenable: index,
+        builder: (_, i, _) => Text(
+            paths.length > 1 ? '傳送中… (${i + 1}/${paths.length})' : '傳送中…'),
+      ),
       content: ValueListenableBuilder<double>(
         valueListenable: progress,
         builder: (_, v, _) => LinearProgressIndicator(value: v),
@@ -931,8 +946,14 @@ Future<void> _sendWithProgress(BuildContext context, AppController c,
     ),
   );
   try {
-    await c.sendFile(device, path, mime: _guessMime(path),
-        onProgress: (v) => progress.value = v);
+    for (var i = 0; i < paths.length; i++) {
+      index.value = i;
+      progress.value = 0;
+      await c.sendFile(device, paths[i],
+          mime: _guessMime(paths[i]),
+          batchCount: paths.length,
+          onProgress: (v) => progress.value = v);
+    }
   } finally {
     if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
   }

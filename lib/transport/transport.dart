@@ -18,6 +18,7 @@ abstract class Transport {
     DeviceInfo target,
     String filePath, {
     String? mime,
+    int? batchCount,
     void Function(double progress)? onProgress,
   });
 

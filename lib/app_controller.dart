@@ -174,14 +174,15 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       return;
     } else if (env.kind == PayloadKind.clipboardText) {
       if (item.text != null) await clipboard.writeText(item.text!);
-    } else if (_isImage(env)) {
-      // 圖片一律交給接收方決定:跳預覽,選複製到剪貼簿或儲存。
+    } else if (_isImage(env) && (env.batchCount ?? 1) <= 1) {
+      // 單張圖片:跳預覽讓接收方決定複製到剪貼簿或儲存。
       received.insert(0, item);
       notifyListeners();
       await onImageReceived?.call(item);
       return;
     } else {
-      await _maybeSaveToGallery(item); // 影片等其他檔
+      // 影片等其他檔,或一次傳來的多張圖片(批次):不跳彈窗,直接落地/存相簿。
+      await _maybeSaveToGallery(item);
     }
     received.insert(0, item);
     notifyListeners();
@@ -250,9 +251,9 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   // ---- 對 UI 的操作 ----
 
   Future<void> sendFile(DeviceInfo target, String path,
-      {String? mime, void Function(double)? onProgress}) async {
-    await _transport!
-        .sendFile(target, path, mime: mime, onProgress: onProgress);
+      {String? mime, int? batchCount, void Function(double)? onProgress}) async {
+    await _transport!.sendFile(target, path,
+        mime: mime, batchCount: batchCount, onProgress: onProgress);
     _setStatus('已傳送檔案到 ${target.name}');
   }
 
@@ -275,11 +276,12 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   // ---- 系統分享選單(iOS Share Extension) ----
 
   /// 把一筆從系統分享進來的內容送到 [target],成功後記住此目標裝置。
-  Future<void> sendShared(DeviceInfo target, SharedPayload payload) async {
+  Future<void> sendShared(DeviceInfo target, SharedPayload payload,
+      {int? batchCount}) async {
     switch (payload.kind) {
       case SharedKind.image:
-        await _transport!
-            .sendFile(target, payload.value, mime: _guessImageMime(payload.value));
+        await _transport!.sendFile(target, payload.value,
+            mime: _guessImageMime(payload.value), batchCount: batchCount);
         _setStatus('已傳送圖片到 ${target.name}');
       case SharedKind.text:
         await _transport!.sendClipboardText(target, payload.value);

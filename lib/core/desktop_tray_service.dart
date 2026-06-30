@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'window_bounds_service.dart';
+
 /// Windows 桌面整合:
 /// - 最小化 / 關閉視窗 → 隱藏到右下角系統匣。
 /// - 系統匣圖示:左鍵點擊還原視窗;右鍵叫出選單。
@@ -15,8 +17,12 @@ class DesktopTrayService with TrayListener, WindowListener {
 
   static bool get isWindows => !kIsWeb && Platform.isWindows;
 
+  /// macOS / Windows 都會初始化 window_manager(視窗 frame 記憶需要)。
+  static bool get isDesktop =>
+      !kIsWeb && (Platform.isMacOS || Platform.isWindows);
+
   static Future<void> ensureInitialized() async {
-    if (!isWindows) return;
+    if (!isDesktop) return;
     await windowManager.ensureInitialized();
     const windowOptions = WindowOptions(
       size: Size(420, 640),
@@ -25,8 +31,11 @@ class DesktopTrayService with TrayListener, WindowListener {
       titleBarStyle: TitleBarStyle.normal,
     );
     await windowManager.waitUntilReadyToShow(windowOptions, () async {
+      // 還原上次關閉前的視窗位置/長寬(沒有存檔則用上面預設),show 之前套用避免閃尺寸。
+      await WindowBoundsService.instance.applySavedBounds();
       await windowManager.show();
       await windowManager.focus();
+      WindowBoundsService.instance.startTracking();
     });
   }
 

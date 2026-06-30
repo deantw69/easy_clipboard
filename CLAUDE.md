@@ -69,3 +69,8 @@
 
 ## 開機自啟動
 - 入口:AppBar 齒輪 → 設定「開機自動啟動」(僅 macOS/Windows)。`lib/core/autostart.dart`:macOS 走 `easy_clipboard/autostart` channel 呼 `SMAppService.mainApp`(需 13+);Windows 寫 `HKCU\...\CurrentVersion\Run`(`win32_registry`)。
+
+## 視窗位置/長寬記憶(桌面 macOS / Windows)
+- `lib/core/window_bounds_service.dart`(單例):啟動還原上次關閉前的視窗 frame、執行中去抖(500ms)存檔,存 appSupport `window_bounds.json`。
+- 初始化掛在 `DesktopTrayService.ensureInitialized()`(已放寬為 `isDesktop`=macOS+Windows,原本僅 Windows):`waitUntilReadyToShow` callback 內 **show 之前** `applySavedBounds()`、show 之後 `startTracking()`,避免閃預設尺寸。
+- 還原時用 `screen_retriever`(原 window_manager 的 transitive 相依,已升為直接相依)`_clampToVisible` 夾限:以視窗中心所在螢幕的可見區域為界,尺寸下限 360×480,防止換螢幕/解析度後開到畫面外;取不到螢幕資訊只保尺寸下限。最小化/隱藏時的 bounds 不可靠,存檔時跳過。

@@ -16,7 +16,7 @@
 - **排序看 `sortKey`(升冪)不是 updatedAt**(`visibleMemos` 先比 sortKey、相等再 updatedAt 降冪;舊資料 sortKey=0 維持新到舊):`add()` 取最小 sortKey-1 置頂、`reorder(orderedIds)` 重指派並 touch,故 `toggleTodo` 雖 touch updatedAt 不改順序。
 - UI(`memos_page.dart`):`ReorderableListView` 整列長按拖曳排序(關預設把手、透明 proxyDecorator);自製 `_SwipeRevealDelete`(仿 Line 左滑露 76px 紅鈕、點紅區才 confirm,與長按拖曳、點擊編輯並存);卡片右上收合鈕(僅本機記憶體,**不持久化/不同步**);待辦網址(`_isUrl`)顯示藍字底線可點 `_openUrl`;編輯器刪待辦走 `_removeTodo` 二次確認。色票常數 `kMemoColors`。
 - iOS 分享**全為網址**時 `runShareFlow`(`home_page.dart`)先問「加入備忘錄／傳到裝置」,選備忘錄則 `_addUrlsToMemo` 跳 picker(選現有或新建)把 URL 加為待辦。
-- **重設並重新同步**(救援被污染的本機資料):設定對話框(`_SettingsDialog`,全平台顯示)「重設備忘錄並重新同步」→ `resetMemosAndResync()`:`clearLocal()` 整包清空(連墓碑)再 `syncMemosWithAll()` 純拉回。空清單在 LWW 不參與(不像刪除會留新時間戳墓碑反向覆蓋),故 100% 以他機為準;`clearLocal()` 刻意不呼叫 `onLocalChange`。前提:來源裝置開著且同網。
+- **重設並重新同步**(救援被污染的本機資料):入口在**備忘錄頁 AppBar 右上三點選單**(`memos_page.dart`,全平台一致)「重設備忘錄並重新同步」→ `resetMemosAndResync()`:`clearLocal()` 整包清空(連墓碑)再 `syncMemosWithAll()` 純拉回。空清單在 LWW 不參與(不像刪除會留新時間戳墓碑反向覆蓋),故 100% 以他機為準;`clearLocal()` 刻意不呼叫 `onLocalChange`。前提:來源裝置開著且同網。
 
 ## macOS 建置
 - build release 後**一律**複製 `.app` 到下載資料夾:

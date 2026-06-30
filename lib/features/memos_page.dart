@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../app_controller.dart';
 import '../memos/memo_store.dart';
 
 /// 判斷待辦文字是否為網址(以 http(s):// 開頭)。
@@ -46,6 +47,49 @@ class MemosPage extends StatefulWidget {
 class _MemosPageState extends State<MemosPage> {
   // 收合狀態(只存本機,不同步)。
   final Set<String> _collapsed = {};
+  bool _busy = false;
+
+  /// 重設本機備忘錄,改以其他裝置為準重新拉取。
+  Future<void> _resetAndResync() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('重設備忘錄並重新同步'),
+        content: const Text(
+          '會清空「這台裝置」上的所有備忘錄,改從其他裝置重新拉取,以其他裝置為準還原。\n\n'
+          '適用於本機資料異常(例如重裝前未同步、又在舊狀態上編輯過)時。\n\n'
+          '請先確認:要當作來源的裝置已開啟、且與本機在同一區網,'
+          '否則本機會被清空且拉不回資料。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('重設並同步'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final n = await context.read<AppController>().resetMemosAndResync();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(n > 0
+                ? '已重設,從 $n 台裝置重新同步'
+                : '已重設,但目前找不到其他裝置可拉取(本機暫為空)'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,6 +103,24 @@ class _MemosPageState extends State<MemosPage> {
             icon: const Icon(Icons.add),
             tooltip: '新增備忘錄',
             onPressed: () => _openEditor(context, store, null),
+          ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            tooltip: '更多',
+            enabled: !_busy,
+            onSelected: (value) {
+              if (value == 'reset') _resetAndResync();
+            },
+            itemBuilder: (_) => [
+              const PopupMenuItem<String>(
+                value: 'reset',
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.sync_problem, color: Colors.redAccent),
+                  title: Text('重設備忘錄並重新同步'),
+                ),
+              ),
+            ],
           ),
         ],
       ),

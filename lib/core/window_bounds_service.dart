@@ -23,6 +23,10 @@ class WindowBoundsService with WindowListener {
   /// 視窗最小可接受尺寸(避免存到被縮到看不見的 frame)。
   static const Size _minSize = Size(360, 480);
 
+  /// 允許視窗超出可見區域邊界的寬容量(px):讓貼邊/略微超出的擺放位置
+  /// 也能被保留,而不會被硬拉回畫面內。
+  static const double _overflowMargin = 100;
+
   Timer? _saveDebounce;
 
   /// 讀取已存的 bounds(夾限在目前可見螢幕內);沒有或失效則回傳 null。
@@ -89,10 +93,12 @@ class WindowBoundsService with WindowListener {
       final displays = await screenRetriever.getAllDisplays();
       final primary = await screenRetriever.getPrimaryDisplay();
 
+      // 用「完整螢幕」而非可見區域(visibleSize)當邊界:可見區域會扣掉
+      // Windows 工作列 / macOS Dock,導致視窗底部永遠貼不到螢幕真正邊緣。
+      // 以完整螢幕為界,再加 _overflowMargin,才能貼底/略微超出。
       Rect areaOf(Display d) {
         final vp = d.visiblePosition ?? const Offset(0, 0);
-        final vs = d.visibleSize ?? d.size;
-        return Rect.fromLTWH(vp.dx, vp.dy, vs.width, vs.height);
+        return Rect.fromLTWH(vp.dx, vp.dy, d.size.width, d.size.height);
       }
 
       // 視窗中心落在哪個螢幕,就以那個螢幕的可見區域為界。
@@ -109,8 +115,11 @@ class WindowBoundsService with WindowListener {
 
       var w = rect.width.clamp(_minSize.width, area.width);
       var h = rect.height.clamp(_minSize.height, area.height);
-      var x = rect.left.clamp(area.left, area.right - w);
-      var y = rect.top.clamp(area.top, area.bottom - h);
+      // 位置夾限放寬 _overflowMargin:允許略微超出螢幕邊界。
+      var x = rect.left.clamp(
+          area.left - _overflowMargin, area.right - w + _overflowMargin);
+      var y = rect.top.clamp(
+          area.top - _overflowMargin, area.bottom - h + _overflowMargin);
       return Rect.fromLTWH(x.toDouble(), y.toDouble(), w.toDouble(), h.toDouble());
     } catch (_) {
       // 取不到螢幕資訊就照原樣(至少保住尺寸下限)。

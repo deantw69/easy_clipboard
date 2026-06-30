@@ -97,6 +97,7 @@ class _MemosPageState extends State<MemosPage> {
     final memos = store.visibleMemos;
     return Scaffold(
       appBar: AppBar(
+        centerTitle: true,
         title: const Text('備忘錄'),
         actions: [
           IconButton(

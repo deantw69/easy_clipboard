@@ -9,7 +9,14 @@ class Identity {
   final String deviceId;
   final String deviceName;
 
-  const Identity({required this.deviceId, required this.deviceName});
+  /// 同步群組碼。空字串=未設定(與所有同網裝置互通);持久化於 `sync_group`。
+  final String groupCode;
+
+  const Identity({
+    required this.deviceId,
+    required this.deviceName,
+    this.groupCode = '',
+  });
 
   static Future<Identity> load() async {
     final dir = await getApplicationSupportDirectory();
@@ -21,7 +28,26 @@ class Identity {
       id = const Uuid().v4();
       await idFile.writeAsString(id);
     }
-    return Identity(deviceId: id, deviceName: await _defaultName());
+    final groupFile = File('${dir.path}/sync_group');
+    final group =
+        await groupFile.exists() ? (await groupFile.readAsString()).trim() : '';
+    return Identity(
+      deviceId: id,
+      deviceName: await _defaultName(),
+      groupCode: group,
+    );
+  }
+
+  /// 寫入同步群組碼。空字串會刪除檔案(回到未設定)。
+  static Future<void> saveGroupCode(String code) async {
+    final dir = await getApplicationSupportDirectory();
+    final groupFile = File('${dir.path}/sync_group');
+    final trimmed = code.trim();
+    if (trimmed.isEmpty) {
+      if (await groupFile.exists()) await groupFile.delete();
+    } else {
+      await groupFile.writeAsString(trimmed);
+    }
   }
 
   /// 取得好辨別的裝置名稱。

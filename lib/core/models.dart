@@ -14,22 +14,29 @@ class DeviceInfo {
   final String? host; // 區網 IP,發現遠端裝置時才有
   final int port; // 接收端 HTTP server 埠
 
+  /// 同步群組碼。空字串代表未設定(與所有同網裝置互通);
+  /// 只有群組碼相同的裝置才會自動合併備忘錄。
+  final String groupCode;
+
   const DeviceInfo({
     required this.id,
     required this.name,
     required this.platform,
     this.host,
     required this.port,
+    this.groupCode = '',
   });
 
   bool get isReachable => host != null;
 
-  DeviceInfo copyWith({String? host, int? port}) => DeviceInfo(
+  DeviceInfo copyWith({String? host, int? port, String? groupCode}) =>
+      DeviceInfo(
         id: id,
         name: name,
         platform: platform,
         host: host ?? this.host,
         port: port ?? this.port,
+        groupCode: groupCode ?? this.groupCode,
       );
 
   /// 本機裝置資訊。[id]/[name] 由上層提供,確保跨啟動穩定。
@@ -37,8 +44,15 @@ class DeviceInfo {
     required String id,
     required String name,
     required int port,
+    String groupCode = '',
   }) =>
-      DeviceInfo(id: id, name: name, platform: currentPlatform, port: port);
+      DeviceInfo(
+        id: id,
+        name: name,
+        platform: currentPlatform,
+        port: port,
+        groupCode: groupCode,
+      );
 
   static String get currentPlatform {
     if (Platform.isMacOS) return 'macos';

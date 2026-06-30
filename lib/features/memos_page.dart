@@ -91,6 +91,55 @@ class _MemosPageState extends State<MemosPage> {
     }
   }
 
+  /// 設定同步群組碼:只有填相同碼的裝置才會自動同步備忘錄。
+  Future<void> _changeGroupCode() async {
+    final c = context.read<AppController>();
+    final controller = TextEditingController(text: c.groupCode);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('同步群組碼'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '只有填相同群組碼的裝置才會自動同步備忘錄。\n'
+              '留空 = 與所有同網裝置同步(預設)。',
+              style: TextStyle(fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: '例如:home',
+                border: OutlineInputBorder(),
+              ),
+              onSubmitted: (v) => Navigator.pop(ctx, v),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('儲存'),
+          ),
+        ],
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await c.updateGroupCode(result);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final store = context.watch<MemoStore>();
@@ -111,8 +160,17 @@ class _MemosPageState extends State<MemosPage> {
             enabled: !_busy,
             onSelected: (value) {
               if (value == 'reset') _resetAndResync();
+              if (value == 'group') _changeGroupCode();
             },
             itemBuilder: (_) => [
+              const PopupMenuItem<String>(
+                value: 'group',
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.group_work_outlined),
+                  title: Text('同步群組碼'),
+                ),
+              ),
               const PopupMenuItem<String>(
                 value: 'reset',
                 child: ListTile(

@@ -31,7 +31,7 @@ class HomePage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(c.local == null
-            ? 'EasyClipboard'
+            ? 'SyncNest'
             : '${c.local!.name} · ${c.local!.platform}'),
         actions: [
           // 設定鈕只在「有桌面專屬設定項可顯示」時出現(開機自啟/快捷鍵/儲存資料夾)。
@@ -267,7 +267,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('開機自動啟動'),
-              subtitle: const Text('登入系統時自動開啟 EasyClipboard'),
+              subtitle: const Text('登入系統時自動開啟 SyncNest'),
               value: _autostart ?? false,
               onChanged: (_autostart == null || _busy) ? null : _toggle,
             ),

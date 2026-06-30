@@ -1,4 +1,4 @@
-# easy_clipboard 專案慣例
+# SyncNest 專案慣例
 
 ## 分支工作流程(重要)
 - **共通功能(備忘錄 memo、剪貼簿等)只在 `main` 改;鬧鐘專屬功能(alarm)只在 `feat/alarm-tab` 改。**
@@ -10,7 +10,7 @@
 ## 跨裝置備忘錄(Memo Sync)
 - 「備忘錄」分頁與剪貼簿同視窗,底部 `NavigationBar` 切換(`root_page.dart`,`home:` 指向 `RootPage`);切換 index 存 appSupport `last_tab`。
 - 資料層 `lib/memos/memo_store.dart`:`Memo`(id/text/todos/updatedAt/deleted/colorValue/sortKey)、`MemoTodo`、`MemoStore extends ChangeNotifier`,持久化 `memos.json`(無資料庫)。
-- **桌面(macOS/Windows)存 `Downloads/EasyClipboard/`**(見「自訂儲存資料夾」),不放 appSupport——appSupport 是沙盒 Container 重裝會清;Downloads 靠 entitlement `files.downloads.read-write` 重裝保留。iOS 等仍存 appSupport(重裝必清,靠區網同步補回)。`load()` 開頭 `_migrateFromAppSupport()` 一次性搬舊檔。
+- **桌面(macOS/Windows)存 `Downloads/SyncNest/`**(見「自訂儲存資料夾」),不放 appSupport——appSupport 是沙盒 Container 重裝會清;Downloads 靠 entitlement `files.downloads.read-write` 重裝保留。iOS 等仍存 appSupport(重裝必清,靠區網同步補回)。`load()` 開頭 `_migrateFromAppSupport()` 一次性搬舊檔。
 - 同步為**雙向合併**:Last-Write-Wins 比 `updatedAt`,刪除留 `deleted=true` 墓碑避免復活;`colorValue`(null=預設黃)、`sortKey` 也隨 LWW 同步。協定 HTTP `POST /memos/sync`(`lan_transport.dart`):送完整清單 JSON,接收端 `mergeJson` 後回傳自己清單,一次往返收斂。
 - 觸發點(`AppController.syncMemosWithAll`,`_syncing` 去抖):discovery onChanged、桌面 15 秒 timer、回前景、本地編輯(`MemoStore.onLocalChange`)。**`mergeJson` 內不可再呼叫 `onLocalChange`**,否則兩台無限互推。iPhone 同網即合併,天然當 macOS↔Windows 橋樑。
 - **排序看 `sortKey`(升冪)不是 updatedAt**(`visibleMemos` 先比 sortKey、相等再 updatedAt 降冪;舊資料 sortKey=0 維持新到舊):`add()` 取最小 sortKey-1 置頂、`reorder(orderedIds)` 重指派並 touch,故 `toggleTodo` 雖 touch updatedAt 不改順序。
@@ -36,17 +36,17 @@
 - build release 後**一律**複製 `.app` 到下載資料夾:
   ```bash
   flutter build macos --release
-  rm -rf ~/Downloads/easy_clipboard.app
-  cp -R build/macos/Build/Products/Release/easy_clipboard.app ~/Downloads/easy_clipboard.app
+  rm -rf ~/Downloads/syncnest.app
+  cp -R build/macos/Build/Products/Release/syncnest.app ~/Downloads/syncnest.app
   ```
 - `flutter` 不在 PATH,先 `export PATH="$PATH:$HOME/development/flutter/bin"`。
 - 部署目標:iOS **15.0**(Firebase 要求,Runner 與 Share Extension 繼承;`ios/Podfile` 同)、macOS **13.0**(開機自啟用 `SMAppService`)。
 - **絕不可平行跑 macOS 與 iOS 建置**:兩者 Xcode build DB(`build/.../XCBuildData/build.db`)同位置同時建會互鎖(`database is locked ... two concurrent builds`)其一 BUILD FAILED;更糟的是 build 失敗後**舊產物仍在**,接著 `cp`/`flutter install` 會誤裝舊版。一律**序列化**做完一個再下一個;撞鎖先 `rm -rf build/macos/Build/Intermediates.noindex/XCBuildData` 再重編。
 
 ## iOS 系統分享選單(Share Extension)
-- 在他 App 分享選單顯示 easy_clipboard,收圖片/文字/網址後送上次裝置。套件 `receive_sharing_intent: 1.8.1`、`url_launcher`。
+- 在他 App 分享選單顯示 SyncNest,收圖片/文字/網址後送上次裝置。套件 `receive_sharing_intent: 1.8.1`、`url_launcher`。
 - Share Extension target 為**自包含原生 Swift**,**不可** import receive_sharing_intent 或 Flutter(無 engine,會找不到 `Flutter/Flutter.h`)。`ShareViewController.swift` 自行寫進 App Group,資料契約(`SharedMediaFile` 欄位、`ShareKey`/`ShareMessageKey`、URL scheme `ShareMedia-<bundleId>:share`)須與 1.8.1 完全一致。
-- 主 App 與擴充共用 App Group `group.com.philio.easyClipboard`(雙方 entitlements);主 App `Info.plist` 需 `CFBundleURLTypes` 含 `ShareMedia-$(PRODUCT_BUNDLE_IDENTIFIER)`。擴充 `MinimumOSVersion` 13.0。
+- 主 App 與擴充共用 App Group `group.com.philio.syncNest`(雙方 entitlements);主 App `Info.plist` 需 `CFBundleURLTypes` 含 `ShareMedia-$(PRODUCT_BUNDLE_IDENTIFIER)`。擴充 `MinimumOSVersion` 13.0。
 - Dart 端 `lib/core/share_handler.dart` → `runShareFlow`;`models.dart` 的 `SharedPayload`/`PayloadKind.url`。
 - **Runner build phases:Embed Foundation Extensions 必須在 Thin Binary、[CP] Embed Pods Frameworks 之前**,否則 "Cycle inside Runner"。
 - Xcode 26.5 專案 objectVersion=70,舊 xcodeproj gem 需手動在 `xcodeproj/constants.rb` 補 `70 => 'Xcode 16.0'`。
@@ -64,12 +64,12 @@
 
 ## 自訂儲存資料夾(桌面 macOS / Windows)
 - `lib/core/storage_location.dart`(單例 ChangeNotifier)統一桌面資料(`memos.json` + 接收圖片)落地;`memo_store._dataDir()` 與 `lan_transport._saveDir()` 都呼叫 `baseDir()`。
-- 預設 `Downloads/EasyClipboard`,可在設定改選(存 appSupport `storage_dir`);`main()` 在 `MemoStore().load()` **之前** `await StorageLocation.instance.load()`。**直接用所選資料夾**(不再多包一層),`setPath` 複製舊檔到新夾(不覆蓋同名),傳 `null` 還原預設。`baseDir()` 自帶 try/catch,路徑失效自動退回預設。
-- **macOS 沙盒**:`user-selected.read-write` 僅本次執行有效,故用 **security-scoped bookmark** 持久化——`MainFlutterWindow.swift` 的 `easy_clipboard/storage_bookmark` channel(save/resolve/clear),存 UserDefaults;`load()` 時 resolve 失敗則退回預設。Windows 無沙盒不需。
+- 預設 `Downloads/SyncNest`,可在設定改選(存 appSupport `storage_dir`);`main()` 在 `MemoStore().load()` **之前** `await StorageLocation.instance.load()`。**直接用所選資料夾**(不再多包一層),`setPath` 複製舊檔到新夾(不覆蓋同名),傳 `null` 還原預設。`baseDir()` 自帶 try/catch,路徑失效自動退回預設。
+- **macOS 沙盒**:`user-selected.read-write` 僅本次執行有效,故用 **security-scoped bookmark** 持久化——`MainFlutterWindow.swift` 的 `SyncNest/storage_bookmark` channel(save/resolve/clear),存 UserDefaults;`load()` 時 resolve 失敗則退回預設。Windows 無沙盒不需。
 - 設定入口 `_SettingsDialog` 「儲存資料夾」ListTile。**`file_picker` 11.0.2 用 `FilePicker.getDirectoryPath(...)` 靜態方法,非 `FilePicker.platform`**。
 
 ## 開機自啟動
-- 入口:AppBar 齒輪 → 設定「開機自動啟動」(僅 macOS/Windows)。`lib/core/autostart.dart`:macOS 走 `easy_clipboard/autostart` channel 呼 `SMAppService.mainApp`(需 13+);Windows 寫 `HKCU\...\CurrentVersion\Run`(`win32_registry`)。
+- 入口:AppBar 齒輪 → 設定「開機自動啟動」(僅 macOS/Windows)。`lib/core/autostart.dart`:macOS 走 `SyncNest/autostart` channel 呼 `SMAppService.mainApp`(需 13+);Windows 寫 `HKCU\...\CurrentVersion\Run`(`win32_registry`)。
 
 ## 視窗位置/長寬記憶(桌面 macOS / Windows)
 - `lib/core/window_bounds_service.dart`(單例):啟動還原上次關閉前的視窗 frame、執行中去抖(500ms)存檔,存 appSupport `window_bounds.json`。

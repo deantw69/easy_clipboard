@@ -8,9 +8,9 @@ import 'package:win32_registry/win32_registry.dart';
 /// - macOS:透過原生 `SMAppService`(需 macOS 13+),由 method channel 處理。
 /// - Windows:寫入 `HKCU\...\CurrentVersion\Run` 登錄機碼,指向目前執行檔。
 class AutostartService {
-  static const _channel = MethodChannel('easy_clipboard/autostart');
+  static const _channel = MethodChannel('syncnest/autostart');
   static const _runPath = r'Software\Microsoft\Windows\CurrentVersion\Run';
-  static const _valueName = 'EasyClipboard';
+  static const _valueName = 'SyncNest';
 
   /// 目前平台是否支援開機自啟動設定。
   static bool get supported => Platform.isMacOS || Platform.isWindows;

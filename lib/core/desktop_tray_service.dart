@@ -27,7 +27,7 @@ class DesktopTrayService with TrayListener, WindowListener {
     const windowOptions = WindowOptions(
       size: Size(420, 640),
       center: true,
-      title: 'Easy Clipboard',
+      title: 'SyncNest',
       titleBarStyle: TitleBarStyle.normal,
     );
     await windowManager.waitUntilReadyToShow(windowOptions, () async {
@@ -47,7 +47,7 @@ class DesktopTrayService with TrayListener, WindowListener {
       trayManager.addListener(this);
 
       await trayManager.setIcon('assets/icon/tray_icon.ico');
-      await trayManager.setToolTip('Easy Clipboard');
+      await trayManager.setToolTip('SyncNest');
 
       await _rebuildMenu();
       _started = true;

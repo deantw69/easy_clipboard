@@ -87,18 +87,18 @@ void main() async {
           return c;
         }),
       ],
-      child: const EasyClipboardApp(),
+      child: const SyncNestApp(),
     ),
   );
 }
 
-class EasyClipboardApp extends StatelessWidget {
-  const EasyClipboardApp({super.key});
+class SyncNestApp extends StatelessWidget {
+  const SyncNestApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'EasyClipboard',
+      title: 'SyncNest',
       navigatorKey: navigatorKey,
       theme: ThemeData(
         colorSchemeSeed: Colors.teal,

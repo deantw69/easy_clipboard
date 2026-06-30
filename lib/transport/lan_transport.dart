@@ -266,7 +266,7 @@ class LanTransport implements Transport {
   /// 對外公開接收檔案的落地目錄,供清除暫存時掃描。
   static Future<Directory> receivedDir() => _saveDir();
 
-  /// 接收檔案的落地目錄。桌面用 StorageLocation(預設 Downloads/EasyClipboard,
+  /// 接收檔案的落地目錄。桌面用 StorageLocation(預設 Downloads/SyncNest,
   /// 可由使用者改選),行動裝置用 App 文件目錄。
   static Future<Directory> _saveDir() async {
     if (Platform.isMacOS || Platform.isWindows) {
@@ -279,7 +279,7 @@ class LanTransport implements Transport {
     } else {
       base = await getApplicationDocumentsDirectory();
     }
-    final dir = Directory(p.join(base.path, 'EasyClipboard'));
+    final dir = Directory(p.join(base.path, 'SyncNest'));
     if (!await dir.exists()) await dir.create(recursive: true);
     return dir;
   }

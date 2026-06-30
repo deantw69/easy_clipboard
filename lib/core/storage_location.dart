@@ -7,7 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 /// 桌面版(macOS / Windows)的資料儲存位置。
 ///
-/// 預設沿用「使用者下載資料夾下的 EasyClipboard/」(見 memo_store 的說明:
+/// 預設沿用「使用者下載資料夾下的 SyncNest/」(見 memo_store 的說明:
 /// 重裝 App 不會被清掉)。使用者可在設定中改選其他資料夾,選定值以純文字
 /// 持久化於 appSupport 的 `storage_dir`(沿用 identity / last_target /
 /// hotkey.json 的「小設定檔存 appSupport」pattern)。
@@ -22,7 +22,7 @@ class StorageLocation extends ChangeNotifier {
   /// macOS 沙盒用:把使用者選的資料夾以 security-scoped bookmark 持久化,
   /// 讓重啟後仍能存取(Windows 無沙盒、不需要)。
   static const MethodChannel _bookmark =
-      MethodChannel('easy_clipboard/storage_bookmark');
+      MethodChannel('syncnest/storage_bookmark');
 
   /// 目前的自訂路徑(null 表示用預設)。
   String? get customPath => _customPath;
@@ -63,12 +63,12 @@ class StorageLocation extends ChangeNotifier {
     }
   }
 
-  /// 無自訂時的預設資料夾:桌面 Downloads/EasyClipboard,其餘 appSupport。
+  /// 無自訂時的預設資料夾:桌面 Downloads/SyncNest,其餘 appSupport。
   Future<Directory> defaultDir() async {
     if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
       final downloads = await getDownloadsDirectory();
       if (downloads != null) {
-        return Directory(p.join(downloads.path, 'EasyClipboard'));
+        return Directory(p.join(downloads.path, 'SyncNest'));
       }
     }
     return getApplicationSupportDirectory();

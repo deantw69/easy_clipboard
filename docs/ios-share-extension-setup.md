@@ -1,14 +1,14 @@
 # iOS 分享選單(Share Extension)設定步驟
 
-讓 easy_clipboard 出現在 iOS 系統「分享」彈出選單中(從相簿、Safari、IG 等分享照片 /
+讓 SyncNest 出現在 iOS 系統「分享」彈出選單中(從相簿、Safari、IG 等分享照片 /
 文字 / 網址時可選到本 App,並自動傳送到上次的裝置)。
 
 Flutter / Swift 程式碼與設定檔都已寫好,**以下只剩 Xcode GUI 與 Apple 後台的步驟需要你手動完成**。
 App Group 沒設好,Extension 與主 App 無法共享分享進來的資料,整個功能不會動。
 
-- **App Group 名稱**:`group.com.philio.easyClipboard`
-- **主 App Bundle ID**:`com.philio.easyClipboard`
-- **Extension Bundle ID**:`com.philio.easyClipboard.Share`
+- **App Group 名稱**:`group.com.philio.syncNest`
+- **主 App Bundle ID**:`com.philio.syncNest`
+- **Extension Bundle ID**:`com.philio.syncNest.Share`
 - **Extension target 名稱**:必須**精確**為 `Share Extension`(Podfile 以此名對應)
 
 ---
@@ -25,7 +25,7 @@ open ios/Runner.xcworkspace
 2. 選 **iOS → Application Extension → Share Extension**,按 Next。
 3. **Product Name** 填 `Share Extension`(含空格,務必一致)。
    - Language:Swift。
-   - 確認 **Bundle Identifier** 為 `com.philio.easyClipboard.Share`。
+   - 確認 **Bundle Identifier** 為 `com.philio.syncNest.Share`。
 4. 按 Finish。跳出 **"Activate "Share Extension" scheme?"** 時按 **Cancel**(不要啟用此 scheme)。
 
 Xcode 會在 `ios/Share Extension/` 自動產生 `ShareViewController.swift`、`Info.plist`、
@@ -53,18 +53,18 @@ cp "ShareExtensionTemplate/Share Extension.entitlements" "Share Extension/Share 
 對 **Runner** target:
 1. 選 Runner target → **Signing & Capabilities**。
 2. 點 **+ Capability** → 加入 **App Groups**。
-3. 勾選 / 新增 `group.com.philio.easyClipboard`。
+3. 勾選 / 新增 `group.com.philio.syncNest`。
    - 這會自動套用已存在的 `Runner/Runner.entitlements`(已含此 group)。
 
 對 **Share Extension** target:
 1. 選 Share Extension target → **Signing & Capabilities**。
-2. **+ Capability → App Groups**,同樣加入 `group.com.philio.easyClipboard`。
+2. **+ Capability → App Groups**,同樣加入 `group.com.philio.syncNest`。
 3. 確認 Build Settings 的 **Code Signing Entitlements** 指向
    `Share Extension/Share Extension.entitlements`。
 
 > App Group 能力需綁定你的 Apple Developer 帳號;若 Xcode 報錯,到
 > [developer.apple.com](https://developer.apple.com) → Identifiers,為兩個 App ID 啟用 App Groups
-> 並建立 `group.com.philio.easyClipboard`,再讓 Xcode 重新產生 provisioning profile。
+> 並建立 `group.com.philio.syncNest`,再讓 Xcode 重新產生 provisioning profile。
 
 ## 5. 設定 Extension 的 Deployment Target
 
@@ -92,7 +92,7 @@ cd ios && pod install
 flutter run               # 或在 Xcode 直接 Run Runner
 ```
 
-測試:相簿選一張照片 → 分享 → 應可看到 **easy_clipboard**。
+測試:相簿選一張照片 → 分享 → 應可看到 **SyncNest**。
 選取後 App 會切到前景,自動傳送到上次的裝置(找不到則跳裝置選單)。
 
 ---

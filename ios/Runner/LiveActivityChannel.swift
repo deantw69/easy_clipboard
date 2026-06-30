@@ -8,7 +8,7 @@ import Foundation
 ///   - `apply` { isPaused: Bool, isIdle: Bool, deadlineMs: Int?, remainingSeconds: Int, label: String }
 ///   - `end`   { immediate: Bool }
 enum LiveActivityChannel {
-    static let name = "easy_clipboard/live_activity"
+    static let name = "syncnest/live_activity"
 
     static func register(messenger: FlutterBinaryMessenger) {
         let channel = FlutterMethodChannel(name: name, binaryMessenger: messenger)

@@ -13,7 +13,7 @@ import '../core/storage_location.dart';
 ///
 /// 代碼必須撐過「刪 App 重新安裝」(否則每次 debug 重裝都要重設),各平台機制不同:
 ///   - 桌面(macOS / Windows):存成檔案,放在與備忘錄同一個資料夾
-///     ([StorageLocation.baseDir],預設 Downloads/EasyClipboard)。該資料夾靠
+///     ([StorageLocation.baseDir],預設 Downloads/SyncNest)。該資料夾靠
 ///     entitlement 重裝保留,首次隨機產生後重裝可繼承。
 ///   - iOS(及其他):appSupport / 備忘錄資料夾重裝必清,唯一能撐過重裝的是 Keychain。
 ///     用 flutter_secure_storage 存,刪 App 重裝預設仍保留 → 同一支手機拿到同一個預設碼。

@@ -17,10 +17,7 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -48,20 +45,20 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyAiYsnmcna2GrgnSk9RaGd53a6gxSbdaRU',
-    appId: '1:393105423189:ios:889d7247eb991af06f8ddc',
+    appId: '1:393105423189:ios:2b033e4c3ee7bab76f8ddc',
     messagingSenderId: '393105423189',
     projectId: 'cross-platform-alarm-app',
     storageBucket: 'cross-platform-alarm-app.firebasestorage.app',
-    iosBundleId: 'com.philio.easyClipboard',
+    iosBundleId: 'com.philio.syncNest',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyAiYsnmcna2GrgnSk9RaGd53a6gxSbdaRU',
-    appId: '1:393105423189:ios:889d7247eb991af06f8ddc',
+    appId: '1:393105423189:ios:2b033e4c3ee7bab76f8ddc',
     messagingSenderId: '393105423189',
     projectId: 'cross-platform-alarm-app',
     storageBucket: 'cross-platform-alarm-app.firebasestorage.app',
-    iosBundleId: 'com.philio.easyClipboard',
+    iosBundleId: 'com.philio.syncNest',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
@@ -72,4 +69,14 @@ class DefaultFirebaseOptions {
     authDomain: 'cross-platform-alarm-app.firebaseapp.com',
     storageBucket: 'cross-platform-alarm-app.firebasestorage.app',
   );
+
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyBwf1PtAym07AxQGEv2KXtdr9mWE1zWdpc',
+    appId: '1:393105423189:web:01b97d74b47c52d86f8ddc',
+    messagingSenderId: '393105423189',
+    projectId: 'cross-platform-alarm-app',
+    authDomain: 'cross-platform-alarm-app.firebaseapp.com',
+    storageBucket: 'cross-platform-alarm-app.firebasestorage.app',
+  );
+
 }

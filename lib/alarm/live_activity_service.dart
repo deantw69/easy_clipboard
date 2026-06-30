@@ -11,7 +11,7 @@ class LiveActivityService {
   LiveActivityService();
 
   static const MethodChannel _channel =
-      MethodChannel('easy_clipboard/live_activity');
+      MethodChannel('syncnest/live_activity');
 
   bool get _isIOS => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 

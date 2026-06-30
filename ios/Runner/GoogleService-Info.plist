@@ -9,7 +9,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.philio.easyClipboard</string>
+	<string>com.philio.syncNest</string>
 	<key>PROJECT_ID</key>
 	<string>cross-platform-alarm-app</string>
 	<key>STORAGE_BUCKET</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:393105423189:ios:889d7247eb991af06f8ddc</string>
+	<string>1:393105423189:ios:2b033e4c3ee7bab76f8ddc</string>
 </dict>
 </plist>

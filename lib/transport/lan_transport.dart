@@ -21,6 +21,7 @@ import 'transport.dart';
 ///   - POST /clipboard  → header `x-envelope` 帶 metadata,body 為文字/PNG 位元組
 const _defaultPort = 53318;
 const _envelopeHeader = 'x-envelope';
+const _groupHeader = 'x-group-code';
 
 class LanTransport implements Transport {
   final int port;
@@ -53,6 +54,10 @@ class LanTransport implements Transport {
   Future<Response> _route(
       Request req, void Function(ReceivedItem) onReceived) async {
     if (req.method == 'POST' && req.url.path == 'memos/sync') {
+      // 群組碼二次防線:不符就拒絕,避免舊 TXT/時序問題誤合併。
+      if ((req.headers[_groupHeader] ?? '') != (_local?.groupCode ?? '')) {
+        return Response(403, body: 'group mismatch');
+      }
       final cb = _onMemoSync;
       if (cb == null) return Response(503, body: 'memo sync unavailable');
       final merged = await cb(await req.readAsString());
@@ -226,12 +231,16 @@ class LanTransport implements Transport {
       options: Options(
         contentType: 'application/json; charset=utf-8',
         responseType: ResponseType.plain,
+        headers: {_groupHeader: _local?.groupCode ?? ''},
         sendTimeout: const Duration(seconds: 10),
         receiveTimeout: const Duration(seconds: 10),
       ),
     );
     return res.data as String;
   }
+
+  @override
+  void updateLocal(DeviceInfo local) => _local = local;
 
   @override
   Future<void> stop() async {

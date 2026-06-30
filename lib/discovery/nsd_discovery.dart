@@ -24,6 +24,10 @@ class NsdDiscovery implements DiscoveryService {
   Future<void> register(DeviceInfo local) async {
     _local = local;
     _localId = local.id;
+    // 清掉舊註冊(例如群組碼變更後重註冊),避免殘留多筆通告。
+    final old = _registration;
+    _registration = null;
+    if (old != null) await nsd.unregister(old);
     _registration = await nsd.register(
       nsd.Service(
         name: local.name,
@@ -33,6 +37,7 @@ class NsdDiscovery implements DiscoveryService {
           'id': _utf8(local.id),
           'name': _utf8(local.name),
           'platform': _utf8(local.platform),
+          'group': _utf8(local.groupCode),
         },
       ),
     );
@@ -97,12 +102,14 @@ class NsdDiscovery implements DiscoveryService {
     final id = _readTxt(txt, 'id') ?? s.name ?? host;
     final name = _readTxt(txt, 'name') ?? s.name ?? host;
     final platform = _readTxt(txt, 'platform') ?? 'unknown';
+    final group = _readTxt(txt, 'group') ?? '';
     return DeviceInfo(
       id: id,
       name: name,
       platform: platform,
       host: host,
       port: port,
+      groupCode: group,
     );
   }
 

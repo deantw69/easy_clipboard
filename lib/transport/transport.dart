@@ -35,5 +35,8 @@ abstract class Transport {
   /// 回傳對方合併後的完整清單 JSON。
   Future<String> syncMemos(DeviceInfo target, String localJson);
 
+  /// 更新本機裝置資訊(例如群組碼變更後),讓接收端比對用最新值。
+  void updateLocal(DeviceInfo local);
+
   Future<void> stop();
 }

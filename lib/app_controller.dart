@@ -56,7 +56,10 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       id: identity.deviceId,
       name: identity.deviceName,
       port: port,
+      groupCode: identity.groupCode,
     );
+    // transport 啟動時用的是占位資訊(空群組碼),補上正式群組碼供 server 比對。
+    _transport!.updateLocal(_local!);
 
     await _discovery.register(_local!);
     await _discovery.start((list) {
@@ -98,7 +101,10 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     if (!ready || _syncing) return;
     _syncing = true;
     try {
-      final targets = devices.where((d) => d.isReachable).toList();
+      final myGroup = _local?.groupCode ?? '';
+      final targets = devices
+          .where((d) => d.isReachable && d.groupCode == myGroup)
+          .toList();
       for (final d in targets) {
         try {
           final remote = await _transport!.syncMemos(d, memos.exportJson());
@@ -110,6 +116,22 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     } finally {
       _syncing = false;
     }
+  }
+
+  /// 目前的同步群組碼(空字串=未設定,與所有同網裝置互通)。
+  String get groupCode => _local?.groupCode ?? '';
+
+  /// 變更同步群組碼:持久化、更新本機資訊與 mDNS 廣播,並重新同步一次。
+  Future<void> updateGroupCode(String code) async {
+    final trimmed = code.trim();
+    await Identity.saveGroupCode(trimmed);
+    final local = _local;
+    if (local == null) return;
+    _local = local.copyWith(groupCode: trimmed);
+    _transport?.updateLocal(_local!);
+    await _discovery.register(_local!); // 重新通告,帶上新的群組碼 TXT
+    notifyListeners();
+    await syncMemosWithAll();
   }
 
   /// 重設本機備忘錄並從其他裝置重新拉取。

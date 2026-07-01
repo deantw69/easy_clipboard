@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'app_controller.dart';
@@ -17,6 +18,13 @@ final desktopTray = DesktopTrayService();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // 手機(iOS/Android)鎖定直向;桌面不受影響。
+  if (Platform.isIOS || Platform.isAndroid) {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+  }
   await DesktopTrayService.ensureInitialized();
   await StorageLocation.instance.load();
   final memoStore = MemoStore()..load();

@@ -2,27 +2,39 @@ import SwiftUI
 
 /// 與主 App 共享的資料契約(見 Runner/WidgetBridgeChannel.swift)。
 /// 從 App Group UserDefaults 的 `memo_widget_data`(JSON Data)解碼。
+struct MemoTodoItem: Codable, Hashable {
+  let text: String
+  let done: Bool
+}
+
 struct MemoSummary: Codable, Hashable {
   let title: String
   let color: Int?
-  let todoCount: Int
-  let doneCount: Int
+  let todos: [MemoTodoItem]
+
+  /// 未勾選優先,已勾選排後(各自維持原順序);供 Widget 顯示與截斷用。
+  var orderedTodos: [MemoTodoItem] {
+    todos.filter { !$0.done } + todos.filter { $0.done }
+  }
 }
 
 struct MemoWidgetData: Codable {
   let pinned: MemoSummary?
-  let recent: [MemoSummary]
 
-  static let empty = MemoWidgetData(pinned: nil, recent: [])
+  static let empty = MemoWidgetData(pinned: nil)
 
   /// 提供 Widget 預覽/佔位用的假資料。
   static let sample = MemoWidgetData(
-    pinned: MemoSummary(title: "買牛奶、雞蛋、麵包", color: nil, todoCount: 3, doneCount: 1),
-    recent: [
-      MemoSummary(title: "買牛奶、雞蛋、麵包", color: nil, todoCount: 3, doneCount: 1),
-      MemoSummary(title: "週五交報告", color: 0xFFB3E5FC, todoCount: 0, doneCount: 0),
-      MemoSummary(title: "回覆客戶信件", color: 0xFFC8E6C9, todoCount: 2, doneCount: 2),
-    ]
+    pinned: MemoSummary(
+      title: "週末採買",
+      color: nil,
+      todos: [
+        MemoTodoItem(text: "買牛奶", done: false),
+        MemoTodoItem(text: "雞蛋一盒", done: false),
+        MemoTodoItem(text: "麵包", done: false),
+        MemoTodoItem(text: "領包裹", done: true),
+      ]
+    )
   )
 }
 

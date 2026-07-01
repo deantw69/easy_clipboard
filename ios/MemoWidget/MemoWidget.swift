@@ -24,18 +24,15 @@ struct MemoProvider: TimelineProvider {
 }
 
 struct MemoWidgetEntryView: View {
-  @Environment(\.widgetFamily) var family
   var entry: MemoEntry
 
   var body: some View {
-    switch family {
-    case .systemSmall:
-      PinnedMemoView(memo: entry.data.pinned)
-        .widgetBackground(Color.fromMemoARGB(entry.data.pinned?.color))
-    default:
-      RecentMemoListView(data: entry.data)
-        .widgetBackground(Color(.systemBackground))
-    }
+    PinnedMemoView(memo: entry.data.pinned)
+      .widgetBackground(
+        entry.data.pinned == nil
+          ? Color(.systemBackground)
+          : Color.fromMemoARGB(entry.data.pinned?.color)
+      )
   }
 }
 

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'alarm/alarm_group.dart';
@@ -27,6 +28,13 @@ final desktopTray = DesktopTrayService();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // 手機(iOS/Android)鎖定直向;桌面不受影響。
+  if (Platform.isIOS || Platform.isAndroid) {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+  }
   await DesktopTrayService.ensureInitialized();
   await StorageLocation.instance.load();
   // 群組代碼要先有 baseDir(桌面存備忘錄同資料夾),故在 StorageLocation 之後載入。

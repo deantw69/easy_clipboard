@@ -36,6 +36,7 @@
 - Dart 端 `lib/core/share_handler.dart` → `runShareFlow`;`models.dart` 的 `SharedPayload`/`PayloadKind.url`。
 - **Runner build phases:Embed Foundation Extensions 必須在 Thin Binary、[CP] Embed Pods Frameworks 之前**,否則 "Cycle inside Runner"。
 - Xcode 26.5 專案 objectVersion=70,舊 xcodeproj gem 需手動在 `xcodeproj/constants.rb` 補 `70 => 'Xcode 16.0'`。
+- **`Runner.xcodeproj/project.pbxproj` 反覆出現 diff 的真相**:`pod install`(由 `flutter build ios`/`flutter run`/手動觸發)整合 Pods 時用 `xcodeproj` gem 重新序列化 Runner.xcodeproj,把 Xcode 26 緊湊格式改成 gem 的多行格式(synchronized group 展開多行、`PBXFileSystemSynchronizedBuildFileExceptionSet` 註解換成人類可讀字串、刪掉空的 `inputPaths`/`outputPaths`)。**這是純排版 churn,`pod install` 不會降 objectVersion**(實測仍保 70)。**曾見的 `objectVersion 70→54` 只來自當初用 xcodeproj gem 加 Widget 的腳本,不是 pod install**。解法:把 gem 格式(objectVersion 70)commit 進去當基準,之後 pod install 讀自家格式原樣寫回=零 diff;唯有偶爾在 Xcode GUI 存檔才會又被改回緊湊格式。
 
 ## Windows 系統匣(Minimize to Tray)
 - `lib/core/desktop_tray_service.dart`,僅 Windows。套件 `tray_manager` + `window_manager`。

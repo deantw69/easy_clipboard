@@ -1,0 +1,67 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+
+import '../memos/memo_store.dart';
+
+/// 把備忘錄摘要推送到 iOS 主畫面 Widget(經 App Group 共享)。
+///
+/// 原生端(WidgetBridgeChannel.swift)收到後寫入
+/// `UserDefaults(suiteName: "group.com.philio.syncNest")` 的 `memo_widget_data`,
+/// 再呼叫 `WidgetCenter.reloadAllTimelines()` 讓 Widget 重新載入。
+///
+/// 僅 iOS 有效;其他平台呼叫為 no-op。監聽 [MemoStore] 的任何變動
+/// (本地編輯或遠端同步合併),都會重新推一次最新內容。
+class WidgetBridge {
+  WidgetBridge._();
+  static final WidgetBridge instance = WidgetBridge._();
+
+  static const _channel = MethodChannel('syncnest/widget');
+
+  MemoStore? _store;
+
+  /// 開始監聽 [store] 並立即推一次目前內容。僅 iOS 生效。
+  void attach(MemoStore store) {
+    if (!Platform.isIOS) return;
+    _store = store;
+    store.addListener(_push);
+    _push();
+  }
+
+  void _push() {
+    final store = _store;
+    if (store == null) return;
+    final pinned = store.pinnedMemo;
+    final recent = store.visibleMemos.take(5).map(_summary).toList();
+    final payload = <String, dynamic>{
+      'pinned': pinned == null ? null : _summary(pinned),
+      'recent': recent,
+    };
+    _channel.invokeMethod('update', payload).catchError((Object e) {
+      // Widget 不是關鍵路徑,推送失敗不影響 App。
+      if (kDebugMode) debugPrint('WidgetBridge update failed: $e');
+    });
+  }
+
+  /// 把一則備忘錄壓成 Widget 顯示用的精簡欄位。
+  Map<String, dynamic> _summary(Memo m) {
+    return {
+      'title': _previewText(m),
+      'color': m.colorValue,
+      'todoCount': m.todos.length,
+      'doneCount': m.todos.where((t) => t.done).length,
+    };
+  }
+
+  /// 取顯示標題:優先備忘錄本文首行,否則第一個待辦文字,再否則佔位字。
+  String _previewText(Memo m) {
+    final body = m.text.trim();
+    if (body.isNotEmpty) return body.split('\n').first;
+    for (final t in m.todos) {
+      final s = t.text.trim();
+      if (s.isNotEmpty) return s;
+    }
+    return '(空白備忘錄)';
+  }
+}

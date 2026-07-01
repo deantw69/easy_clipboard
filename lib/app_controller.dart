@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'clipboard/clipboard_service.dart';
 import 'core/identity.dart';
 import 'core/models.dart';
+import 'core/widget_bridge.dart';
 import 'discovery/discovery.dart';
 import 'discovery/nsd_discovery.dart';
 import 'memos/memo_store.dart';
@@ -71,6 +72,9 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
 
     // 本地備忘錄變動時,立即推送到區網其他裝置。
     memos.onLocalChange = () => syncMemosWithAll();
+
+    // iOS:任何備忘錄變動(本地或遠端合併)都同步一份摘要給主畫面 Widget。
+    WidgetBridge.instance.attach(memos);
 
     WidgetsBinding.instance.addObserver(this);
 

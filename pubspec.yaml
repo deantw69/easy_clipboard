@@ -61,6 +61,8 @@ dependencies:
   screen_retriever: ^0.2.1
   # 全域快捷鍵呼出視窗(Windows)。
   hotkey_manager: ^0.2.3
+  # 同步群組碼持久化:iOS 存 Keychain(重裝保留)。
+  flutter_secure_storage: ^9.2.4
 
 dev_dependencies:
   flutter_test:

@@ -17,5 +17,8 @@ import UIKit
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "LiveActivityChannel") {
       LiveActivityChannel.register(messenger: registrar.messenger())
     }
+
+    // 註冊主畫面 Widget(MemoWidget)橋接 channel。
+    WidgetBridgeChannel.register(with: engineBridge.pluginRegistry)
   }
 }

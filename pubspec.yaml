@@ -68,8 +68,7 @@ dependencies:
   timezone: 0.10.1
   flutter_timezone: 5.1.0
   audioplayers: 6.6.0
-  # 鬧鐘群組代碼:iOS 存 Keychain(刪 App 重裝仍保留 → 同一支手機重裝拿到同一預設碼);
-  # 桌面(macOS/Windows)不用此套件,代碼改存備忘錄同資料夾。
+  # 群組代碼持久化:iOS 存 Keychain(重裝保留)。鬧鐘 alarm_group 與備忘錄 sync_group 共用此套件。
   flutter_secure_storage: ^9.2.4
 
 # firebase_core 4.10.0 的原生 Pigeon 為 14 欄(FirebaseOptions 無 recaptchaSiteKey),

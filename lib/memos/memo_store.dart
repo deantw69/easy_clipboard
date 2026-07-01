@@ -45,6 +45,9 @@ class Memo {
   /// 列表排序鍵(升冪,小者在上);拖曳排序時改寫。預設 0。
   int sortKey;
 
+  /// 是否釘選(顯示在 iOS 主畫面 Widget)。全域至多一則為 true。
+  bool pinned;
+
   Memo({
     required this.id,
     this.text = '',
@@ -53,6 +56,7 @@ class Memo {
     this.deleted = false,
     this.colorValue,
     this.sortKey = 0,
+    this.pinned = false,
   }) : todos = todos ?? [];
 
   factory Memo.create({String text = ''}) => Memo(
@@ -72,6 +76,7 @@ class Memo {
         'deleted': deleted,
         'colorValue': colorValue,
         'sortKey': sortKey,
+        'pinned': pinned,
       };
 
   factory Memo.fromJson(Map<String, dynamic> j) => Memo(
@@ -84,6 +89,7 @@ class Memo {
         deleted: (j['deleted'] as bool?) ?? false,
         colorValue: (j['colorValue'] as num?)?.toInt(),
         sortKey: (j['sortKey'] as num?)?.toInt() ?? 0,
+        pinned: (j['pinned'] as bool?) ?? false,
       );
 }
 
@@ -224,6 +230,32 @@ class MemoStore extends ChangeNotifier {
     memo.deleted = true;
     memo.touch();
     _commit();
+  }
+
+  /// 目前釘選的備忘錄(供 Widget 顯示);無則 null。
+  Memo? get pinnedMemo {
+    for (final m in _memos) {
+      if (m.pinned && !m.deleted) return m;
+    }
+    return null;
+  }
+
+  /// 切換釘選:全域至多一則為釘選,釘新的會取消其他所有釘選。
+  /// 對受影響的每則 touch() 以隨 LWW 同步到其他裝置,只 commit 一次。
+  void togglePin(String id) {
+    final target = _byId(id);
+    if (target == null) return;
+    final willPin = !target.pinned;
+    var changed = false;
+    for (final m in _memos) {
+      final desired = willPin && m.id == id;
+      if (m.pinned != desired) {
+        m.pinned = desired;
+        m.touch();
+        changed = true;
+      }
+    }
+    if (changed) _commit();
   }
 
   Memo? _byId(String id) {

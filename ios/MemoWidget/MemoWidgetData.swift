@@ -7,7 +7,8 @@ struct MemoTodoItem: Codable, Hashable {
   let done: Bool
 }
 
-struct MemoSummary: Codable, Hashable {
+struct MemoSummary: Codable, Hashable, Identifiable {
+  let id: String
   let title: String
   let color: Int?
   let todos: [MemoTodoItem]
@@ -16,16 +17,26 @@ struct MemoSummary: Codable, Hashable {
   var orderedTodos: [MemoTodoItem] {
     todos.filter { !$0.done } + todos.filter { $0.done }
   }
+
+  /// 標題為空時的顯示名(供選單/標題列)。
+  var displayName: String {
+    title.isEmpty ? "(無標題備忘錄)" : title
+  }
 }
 
 struct MemoWidgetData: Codable {
-  let pinned: MemoSummary?
+  let memos: [MemoSummary]
 
-  static let empty = MemoWidgetData(pinned: nil)
+  static let empty = MemoWidgetData(memos: [])
+
+  func memo(id: String) -> MemoSummary? {
+    memos.first { $0.id == id }
+  }
 
   /// 提供 Widget 預覽/佔位用的假資料。
-  static let sample = MemoWidgetData(
-    pinned: MemoSummary(
+  static let sample = MemoWidgetData(memos: [
+    MemoSummary(
+      id: "sample-1",
       title: "週末採買",
       color: nil,
       todos: [
@@ -34,8 +45,19 @@ struct MemoWidgetData: Codable {
         MemoTodoItem(text: "麵包", done: false),
         MemoTodoItem(text: "領包裹", done: true),
       ]
-    )
-  )
+    ),
+    MemoSummary(
+      id: "sample-2",
+      title: "工作待辦",
+      color: 0xFFB3E5FC,
+      todos: [
+        MemoTodoItem(text: "回覆客戶信件", done: false),
+        MemoTodoItem(text: "週五交報告", done: false),
+      ]
+    ),
+  ])
+
+  static var sampleMemo: MemoSummary { sample.memos[0] }
 }
 
 enum MemoWidgetStore {

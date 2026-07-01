@@ -32,9 +32,9 @@ class WidgetBridge {
   void _push() {
     final store = _store;
     if (store == null) return;
-    final pinned = store.pinnedMemo;
+    // 送出完整清單:widget 各實例經 AppIntent 依 id 挑選要顯示哪一則。
     final payload = <String, dynamic>{
-      'pinned': pinned == null ? null : _summary(pinned),
+      'memos': store.visibleMemos.map(_summary).toList(),
     };
     _channel.invokeMethod('update', payload).catchError((Object e) {
       // Widget 不是關鍵路徑,推送失敗不影響 App。
@@ -42,10 +42,11 @@ class WidgetBridge {
     });
   }
 
-  /// 把釘選備忘錄壓成 Widget 顯示用的欄位:標題 + 待辦(文字/勾選)。
+  /// 把一則備忘錄壓成 Widget 顯示用的欄位:id + 標題 + 待辦(文字/勾選)。
   /// 待辦順序原樣送出,由 Widget 端決定「未勾選優先」與截斷。
   Map<String, dynamic> _summary(Memo m) {
     return {
+      'id': m.id,
       'title': m.text.trim().split('\n').first,
       'color': m.colorValue,
       'todos': m.todos

@@ -270,23 +270,6 @@ class _MemoCard extends StatelessWidget {
                             )
                           : const SizedBox.shrink(),
                     ),
-                    SizedBox(
-                      height: 22,
-                      child: IconButton(
-                        icon: Icon(
-                          memo.pinned
-                              ? Icons.push_pin
-                              : Icons.push_pin_outlined,
-                          size: 18,
-                          color: memo.pinned ? Colors.redAccent : Colors.black38,
-                        ),
-                        tooltip: memo.pinned ? '取消釘選' : '釘選到 Widget',
-                        padding: EdgeInsets.zero,
-                        visualDensity: VisualDensity.compact,
-                        constraints: const BoxConstraints.tightFor(width: 28),
-                        onPressed: () => store.togglePin(memo.id),
-                      ),
-                    ),
                     if (hasBody)
                       SizedBox(
                         height: 22,

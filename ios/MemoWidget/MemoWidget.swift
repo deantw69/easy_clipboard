@@ -1,25 +1,39 @@
 import WidgetKit
 import SwiftUI
+import AppIntents
 
 struct MemoEntry: TimelineEntry {
   let date: Date
-  let data: MemoWidgetData
+  let memo: MemoSummary?
+  /// 使用者是否已在設定挑過備忘錄(用來區分「尚未選」與「選到的已被刪除」)。
+  let hasSelection: Bool
 }
 
-struct MemoProvider: TimelineProvider {
+struct MemoProvider: AppIntentTimelineProvider {
+  typealias Entry = MemoEntry
+  typealias Intent = SelectMemoIntent
+
   func placeholder(in context: Context) -> MemoEntry {
-    MemoEntry(date: Date(), data: .sample)
+    MemoEntry(date: Date(), memo: MemoWidgetData.sampleMemo, hasSelection: true)
   }
 
-  func getSnapshot(in context: Context, completion: @escaping (MemoEntry) -> Void) {
-    let data = context.isPreview ? .sample : MemoWidgetStore.load()
-    completion(MemoEntry(date: Date(), data: data))
+  func snapshot(for configuration: SelectMemoIntent, in context: Context) async -> MemoEntry {
+    if context.isPreview {
+      return MemoEntry(date: Date(), memo: MemoWidgetData.sampleMemo, hasSelection: true)
+    }
+    return resolve(configuration)
   }
 
-  func getTimeline(in context: Context, completion: @escaping (Timeline<MemoEntry>) -> Void) {
-    let entry = MemoEntry(date: Date(), data: MemoWidgetStore.load())
+  func timeline(for configuration: SelectMemoIntent, in context: Context) async -> Timeline<MemoEntry> {
     // 內容變動時主 App 會呼叫 reloadAllTimelines,故這裡不需定時刷新。
-    completion(Timeline(entries: [entry], policy: .never))
+    Timeline(entries: [resolve(configuration)], policy: .never)
+  }
+
+  private func resolve(_ configuration: SelectMemoIntent) -> MemoEntry {
+    let data = MemoWidgetStore.load()
+    let selectedId = configuration.memo?.id
+    let memo = selectedId.flatMap { data.memo(id: $0) }
+    return MemoEntry(date: Date(), memo: memo, hasSelection: selectedId != nil)
   }
 }
 
@@ -27,11 +41,11 @@ struct MemoWidgetEntryView: View {
   var entry: MemoEntry
 
   var body: some View {
-    PinnedMemoView(memo: entry.data.pinned)
+    MemoDetailView(memo: entry.memo, hasSelection: entry.hasSelection)
       .widgetBackground(
-        entry.data.pinned == nil
+        entry.memo == nil
           ? Color(.systemBackground)
-          : Color.fromMemoARGB(entry.data.pinned?.color)
+          : Color.fromMemoARGB(entry.memo?.color)
       )
   }
 }
@@ -52,11 +66,11 @@ struct MemoWidget: Widget {
   let kind: String = "MemoWidget"
 
   var body: some WidgetConfiguration {
-    StaticConfiguration(kind: kind, provider: MemoProvider()) { entry in
+    AppIntentConfiguration(kind: kind, intent: SelectMemoIntent.self, provider: MemoProvider()) { entry in
       MemoWidgetEntryView(entry: entry)
     }
     .configurationDisplayName("SyncNest 備忘錄")
-    .description("顯示釘選的備忘錄與最近幾筆。")
+    .description("選擇要顯示的備忘錄;可放多個各顯示不同備忘錄。")
     .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
   }
 }

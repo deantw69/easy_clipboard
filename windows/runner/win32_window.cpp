@@ -1,4 +1,4 @@
-#include "win32_window.h"
+﻿#include "win32_window.h"
 
 #include <dwmapi.h>
 #include <flutter_windows.h>
@@ -178,6 +178,18 @@ Win32Window::MessageHandler(HWND hwnd,
                             UINT const message,
                             WPARAM const wparam,
                             LPARAM const lparam) noexcept {
+  // 單一實例:第二次啟動的副本會廣播這個訊息,通知已在執行(可能縮在系統匣)的
+  // 本實例把視窗叫回來並帶到前景。RegisterWindowMessage 對相同字串在系統內回傳
+  // 相同的訊息編號,所以兩個實例談的是同一個訊息。
+  static const UINT kShowFirstInstanceMsg =
+      ::RegisterWindowMessageW(L"SYNCNEST_SHOW_FIRST_INSTANCE");
+  if (message == kShowFirstInstanceMsg) {
+    ::ShowWindow(hwnd, SW_SHOW);     // 從系統匣(隱藏)還原顯示
+    ::ShowWindow(hwnd, SW_RESTORE);  // 若是最小化狀態則還原
+    ::SetForegroundWindow(hwnd);     // 帶到最前面
+    return 0;
+  }
+
   switch (message) {
     case WM_DESTROY:
       window_handle_ = nullptr;

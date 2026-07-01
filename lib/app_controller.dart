@@ -386,9 +386,10 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     try {
       final dir = await LanTransport.receivedDir();
       if (await dir.exists()) {
-        // 桌面接收資料夾與 baseDir 同一處,memos.json / alarm_group 也住這裡,
-        // 清除收到的內容時要跳過這些設定檔,別把備忘錄與鬧鐘代碼一起刪了。
-        const protected = {'memos.json', 'alarm_group'};
+        // 桌面接收資料夾與 baseDir 同一處,memos.json / alarm_group / sync_group
+        // 也住這裡,清除收到的內容時要跳過這些設定檔,別把備忘錄、鬧鐘代碼、
+        // 同步群組碼一起刪了。
+        const protected = {'memos.json', 'alarm_group', 'sync_group'};
         await for (final entity in dir.list()) {
           if (entity is File) {
             if (protected.contains(p.basename(entity.path))) continue;

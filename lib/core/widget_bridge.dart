@@ -33,10 +33,8 @@ class WidgetBridge {
     final store = _store;
     if (store == null) return;
     final pinned = store.pinnedMemo;
-    final recent = store.visibleMemos.take(5).map(_summary).toList();
     final payload = <String, dynamic>{
       'pinned': pinned == null ? null : _summary(pinned),
-      'recent': recent,
     };
     _channel.invokeMethod('update', payload).catchError((Object e) {
       // Widget 不是關鍵路徑,推送失敗不影響 App。
@@ -44,24 +42,15 @@ class WidgetBridge {
     });
   }
 
-  /// 把一則備忘錄壓成 Widget 顯示用的精簡欄位。
+  /// 把釘選備忘錄壓成 Widget 顯示用的欄位:標題 + 待辦(文字/勾選)。
+  /// 待辦順序原樣送出,由 Widget 端決定「未勾選優先」與截斷。
   Map<String, dynamic> _summary(Memo m) {
     return {
-      'title': _previewText(m),
+      'title': m.text.trim().split('\n').first,
       'color': m.colorValue,
-      'todoCount': m.todos.length,
-      'doneCount': m.todos.where((t) => t.done).length,
+      'todos': m.todos
+          .map((t) => {'text': t.text.trim(), 'done': t.done})
+          .toList(),
     };
-  }
-
-  /// 取顯示標題:優先備忘錄本文首行,否則第一個待辦文字,再否則佔位字。
-  String _previewText(Memo m) {
-    final body = m.text.trim();
-    if (body.isNotEmpty) return body.split('\n').first;
-    for (final t in m.todos) {
-      final s = t.text.trim();
-      if (s.isNotEmpty) return s;
-    }
-    return '(空白備忘錄)';
   }
 }

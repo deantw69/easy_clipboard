@@ -6,6 +6,10 @@
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<!-- 關掉 Flutter 內建自動深連結路由:syncnest:// 由 DeepLinkChannel 自行處理切分頁,
+	     否則 Flutter 會把 URL 當導航 route 推進 Navigator,疊一個畫面上來。 -->
+	<key>FlutterDeepLinkingEnabled</key>
+	<false/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

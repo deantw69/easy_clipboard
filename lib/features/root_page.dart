@@ -42,10 +42,17 @@ class _RootPageState extends State<RootPage> {
   @override
   void initState() {
     super.initState();
+    // 冷啟動時深連結/通知可能在 mount 前就設好目標;此時還在 build 階段不能 setState,
+    // 直接指定初始 index(並標記 _routedByLink,讓 _loadLastTab 不搶回)。
+    final pending = TabRouter.instance.requested.value;
+    final i = pending == null ? null : _indexForTab(pending);
+    if (i != null) {
+      _index = i;
+      _routedByLink = true;
+      TabRouter.instance.consume();
+    }
     _loadLastTab();
     TabRouter.instance.requested.addListener(_onTabRequested);
-    // 冷啟動時深連結可能在 addListener 之前就被設好,補處理一次。
-    _onTabRequested();
   }
 
   @override

@@ -24,6 +24,10 @@ class NotificationService {
 
   bool _initialized = false;
 
+  /// 使用者點擊通知(前景/背景喚醒或冷啟動)時呼叫,用來切到鬧鐘分頁。
+  /// 由 `main.dart` 設為 `() => TabRouter.instance.go(AppTab.alarm)`。
+  void Function()? onTapAlarm;
+
   /// 此平台是否支援排程通知(App 關閉也會響)。
   bool get supportsScheduling =>
       !kIsWeb &&
@@ -64,9 +68,23 @@ class NotificationService {
         macOS: darwin,
         windows: windows,
       ),
+      onDidReceiveNotificationResponse: (_) {
+        onTapAlarm?.call();
+      },
     );
 
     _initialized = true;
+  }
+
+  /// 若 App 是被點擊通知冷啟動,補切一次鬧鐘分頁
+  /// (冷啟動不會觸發 `onDidReceiveNotificationResponse`)。
+  /// 需在 [onTapAlarm] 設好後呼叫。
+  Future<void> handleLaunchTap() async {
+    await init();
+    final details = await _plugin.getNotificationAppLaunchDetails();
+    if (details?.didNotificationLaunchApp ?? false) {
+      onTapAlarm?.call();
+    }
   }
 
   /// 請求通知權限(iOS / macOS / Android 13+)。在 App 啟動後呼叫。

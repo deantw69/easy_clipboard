@@ -19,24 +19,31 @@ struct CountdownLiveActivity: Widget {
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
             DynamicIsland {
+                // 展開區:系統忽略 .widgetURL,必須用 Link 才能點擊回 App(切鬧鐘分頁)。
                 DynamicIslandExpandedRegion(.leading) {
-                    Label {
-                        Text(context.state.label.isEmpty ? "倒數計時" : context.state.label)
-                            .font(.headline)
-                            .lineLimit(1)
-                    } icon: {
-                        Image(systemName: "timer")
-                            .foregroundStyle(.cyan)
+                    Link(destination: URL(string: "syncnest://alarm")!) {
+                        Label {
+                            Text(context.state.label.isEmpty ? "倒數計時" : context.state.label)
+                                .font(.headline)
+                                .lineLimit(1)
+                        } icon: {
+                            Image(systemName: "timer")
+                                .foregroundStyle(.cyan)
+                        }
                     }
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    countdownText(context, font: .system(size: 30, weight: .semibold))
-                        .frame(maxWidth: 110)
+                    Link(destination: URL(string: "syncnest://alarm")!) {
+                        countdownText(context, font: .system(size: 30, weight: .semibold))
+                            .frame(maxWidth: 110)
+                    }
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    Text(statusLine(context))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Link(destination: URL(string: "syncnest://alarm")!) {
+                        Text(statusLine(context))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             } compactLeading: {
                 Image(systemName: context.state.isPaused ? "pause.fill" : "timer")
@@ -48,20 +55,25 @@ struct CountdownLiveActivity: Widget {
                 countdownText(context, font: .system(size: 13, weight: .semibold))
                     .frame(width: 42)
             } minimal: {
-                if context.state.isIdle {
-                    Image(systemName: "timer")
-                        .foregroundStyle(.secondary)
-                } else if isDone(context) {
-                    Image(systemName: "timer")
-                        .foregroundStyle(.cyan)
-                } else if context.state.isPaused {
-                    Image(systemName: "pause.fill")
-                        .foregroundStyle(.cyan)
-                } else {
-                    countdownText(context, font: .system(size: 13, weight: .semibold))
-                        .frame(maxWidth: 44)
+                Group {
+                    if context.state.isIdle {
+                        Image(systemName: "timer")
+                            .foregroundStyle(.secondary)
+                    } else if isDone(context) {
+                        Image(systemName: "timer")
+                            .foregroundStyle(.cyan)
+                    } else if context.state.isPaused {
+                        Image(systemName: "pause.fill")
+                            .foregroundStyle(.cyan)
+                    } else {
+                        countdownText(context, font: .system(size: 13, weight: .semibold))
+                            .frame(maxWidth: 44)
+                    }
                 }
             }
+            // compact/minimal 的深連結必須套在 DynamicIsland 實例這層(非各子 view 內),
+            // 才會生效;展開區另用 Link(見上)。
+            .widgetURL(URL(string: "syncnest://alarm"))
             .keylineTint(.cyan)
         }
     }
@@ -93,6 +105,8 @@ private struct LockScreenView: View {
             }
         }
         .padding(16)
+        // 點鎖定畫面 / 通知中心橫幅回 App 切鬧鐘分頁。
+        .widgetURL(URL(string: "syncnest://alarm"))
     }
 }
 

@@ -19,6 +19,7 @@ import 'core/desktop_tray_service.dart';
 import 'core/hotkey_service.dart';
 import 'core/share_handler.dart';
 import 'core/storage_location.dart';
+import 'core/tab_router.dart';
 import 'features/home_page.dart';
 import 'features/root_page.dart';
 import 'firebase_options.dart';
@@ -47,7 +48,10 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   final notifications = NotificationService();
+  // 點擊鬧鐘通知(前景/背景/冷啟動)→ 切到鬧鐘分頁。
+  notifications.onTapAlarm = () => TabRouter.instance.go(AppTab.alarm);
   await notifications.init();
+  unawaited(notifications.handleLaunchTap());
   final menuBar = MenuBarService();
   await menuBar.init();
   final alarmServices = AlarmServices(
@@ -83,10 +87,7 @@ void main() async {
         if (Platform.isIOS) {
           final handler =
               ShareHandler(controller: c, navigatorKey: navigatorKey);
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            handler.start();
-            DeepLinkService.instance.start();
-          });
+          WidgetsBinding.instance.addPostFrameCallback((_) => handler.start());
         }
 
         if (DesktopTrayService.isWindows) {
@@ -101,6 +102,12 @@ void main() async {
       child: const SyncNestApp(),
     ),
   );
+
+  // 深連結(Widget/動態島)接收:儘早訂閱串流並取回冷啟動初始連結。
+  // 冷啟動時 TabRouter 目標可能在 RootPage mount 前就設好,由 RootPage.initState 補套用。
+  if (Platform.isIOS) {
+    DeepLinkService.instance.start();
+  }
 }
 
 class SyncNestApp extends StatelessWidget {

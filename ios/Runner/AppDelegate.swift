@@ -13,6 +13,8 @@ import UIKit
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     WidgetBridgeChannel.register(with: engineBridge.pluginRegistry)
-    DeepLinkChannel.register(with: engineBridge.pluginRegistry)
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "DeepLink") {
+      DeepLinkChannel.register(with: registrar)
+    }
   }
 }

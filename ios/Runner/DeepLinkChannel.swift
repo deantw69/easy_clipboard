@@ -20,8 +20,7 @@ class DeepLinkChannel: NSObject, FlutterPlugin {
   /// 冷啟動時尚無 Dart handler,先暫存路由目標(host,如 "memo"/"alarm")。
   private static var pending: String?
 
-  static func register(with registry: FlutterPluginRegistry) {
-    guard let registrar = registry.registrar(forPlugin: "DeepLink") else { return }
+  static func register(with registrar: FlutterPluginRegistrar) {
     let ch = FlutterMethodChannel(name: channelName, binaryMessenger: registrar.messenger())
     ch.setMethodCallHandler { call, result in
       switch call.method {

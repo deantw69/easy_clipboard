@@ -75,10 +75,11 @@ class DeepLinkChannel: NSObject, FlutterPlugin, FlutterSceneLifeCycleDelegate {
   func scene(
     _ scene: UIScene,
     willConnectTo session: UISceneSession,
-    options connectionOptions: UIScene.ConnectionOptions
+    options connectionOptions: UIScene.ConnectionOptions?
   ) -> Bool {
+    guard let contexts = connectionOptions?.urlContexts else { return false }
     var handled = false
-    for context in connectionOptions.urlContexts where DeepLinkChannel.handle(context.url) {
+    for context in contexts where DeepLinkChannel.handle(context.url) {
       handled = true
     }
     return handled

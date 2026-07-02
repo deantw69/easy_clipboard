@@ -40,6 +40,16 @@
 - **Firebase 版本鎖(別亂升,否則啟動黑/白屏)**:`firebase_core` 釘 `4.10.0`(原生 Pigeon `FirebaseOptions` 14 欄);但 transitive `firebase_core_web` 拉 `firebase_core_platform_interface ^7.1.0`(Dart 解碼 15 欄)→ `initializeApp` 報 `RangeError`、到不了 `runApp`。修法:`pubspec.yaml` `dependency_overrides: firebase_core_platform_interface: 7.0.1`。**別為消 override 升 `firebase_core` 4.11.0**(會連動拉高原生 SDK,與 `cloud_firestore 6.5.0` 部署目標衝突);要升得整組一起動。
 - pod install 在系統 Ruby 2.6 撞 `Encoding::CompatibilityError`,需 `export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8`。不支援 Android(`firebase_options.dart` 的 Android 條目用不到)。
 
+## 深連結導頁(Deep Link → 分頁,iOS)
+- **需求**:Widget 點擊回 App→切**備忘錄**分頁(共通,兩分支都要);推播/動態島點擊回 App→切**鬧鐘**分頁(僅 alarm 功能,只 `feat/alarm-tab` 有鬧鐘分頁)。**共通基礎建設在 main 開發**,alarm 專屬的 `syncnest://alarm` 觸發源與分頁 index 對應在 `feat/alarm-tab`。
+- **URL scheme `syncnest://`**:`ios/Runner/Info.plist` 的 `CFBundleURLTypes` 第二組(與 Share Extension 的 `ShareMedia-*` 並列)。host 即路由目標:`memo`、`alarm`。Widget 端 `MemoWidget.swift` 加 `.widgetURL(URL(string:"syncnest://memo"))`。
+- **原生接收(單一入口)**:`ios/Runner/DeepLinkChannel.swift`(`NSObject, FlutterPlugin`),在 `AppDelegate.didInitializeImplicitFlutterEngine` 以 `DeepLinkChannel.register(with: pluginRegistry)` 註冊,內部 `registrar.addApplicationDelegate(self)`。**不覆寫 SceneDelegate**——`FlutterSceneDelegate` 會自動把 scene 冷啟動(`willConnectToSession`)與熱啟動(`openURLContexts`)的 URL 轉發到所有 plugin 的 `application(_:open:options:)`(receive_sharing_intent 同機制);自行覆寫會破壞分享流程且有 override/super 編譯風險(`FlutterSceneDelegate` 標頭沒宣告這些 scene 方法)。
+- **冷/熱啟動**:MethodChannel `syncnest/deeplink`。熱啟動即時 `invokeMethod("route", host)`;冷啟動 Dart handler 未就緒時把 host 暫存 `pending`,Dart 端 `getInitial` 取回並清空。
+- **Dart 端**:`lib/core/deep_link.dart`(`DeepLinkService` 單例,僅 iOS,`main.dart` 首幀後 `start()`)收 `route`/呼 `getInitial`,host→`AppTab`(`lib/core/tab_router.dart` 的 enum `{clipboard, memo, alarm}`)交給 `TabRouter.instance.go`。`TabRouter` 用 `ValueNotifier<AppTab?> requested`,`RootPage` 監聽→`_indexForTab` 映射成本分支分頁 index→`setState` 切換→`consume` 清空。
+- **分支差異**:`RootPage._indexForTab`(`root_page.dart`)映射 `AppTab`→分頁 index。**main**:clipboard=0、memo=1,`alarm` 回 `null`(無鬧鐘分頁,收到即忽略);**feat/alarm-tab**:再加 `alarm`=2。深連結指定分頁時 `_routedByLink=true`,`_loadLastTab` 不再用 `last_tab` 還原覆蓋(避免搶回)。
+- **pbxproj**:`DeepLinkChannel.swift` 屬 Runner(傳統 PBXGroup),已顯式加進 Runner group + Sources phase(比照 `WidgetBridgeChannel.swift`),objectVersion 維持 70。
+- **alarm 專屬觸發源(本分支待接)**:鬧鐘**推播通知**點擊、**Live Activity/動態島**點擊都要導向 `syncnest://alarm`。通知端在 `notification_service.dart`/原生通知 payload 帶 deep link;Live Activity 端 `CountdownWidget` 的 view 加 `.widgetURL`/`Link(destination: URL("syncnest://alarm"))`。
+
 ## macOS 建置
 - build release 後**一律**複製 `.app` 到下載資料夾:
   ```bash

@@ -47,6 +47,8 @@ struct MemoWidgetEntryView: View {
           ? Color(.systemBackground)
           : Color.fromMemoARGB(entry.memo?.color)
       )
+      // 點擊 Widget 回 App 並切到備忘錄分頁。
+      .widgetURL(URL(string: "syncnest://memo"))
   }
 }
 

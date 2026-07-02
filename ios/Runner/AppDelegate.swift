@@ -20,5 +20,6 @@ import UIKit
 
     // 註冊主畫面 Widget(MemoWidget)橋接 channel。
     WidgetBridgeChannel.register(with: engineBridge.pluginRegistry)
+    DeepLinkChannel.register(with: engineBridge.pluginRegistry)
   }
 }

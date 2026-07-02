@@ -31,6 +31,7 @@
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
 		9B008E09794E942DE3EB5132 /* WidgetBridgeChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1E26DA420B0AF4C7B912D7 /* WidgetBridgeChannel.swift */; };
+		AA01AA01AA01AA01AA01AA01 /* DeepLinkChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC01CC01CC01CC01CC01CC01 /* DeepLinkChannel.swift */; };
 		9C276A6B0B426717211042EF /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = AD5ABF8E1D5E844497B863E0 /* GoogleService-Info.plist */; };
 		A1B2C3D40000000000000001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000002 /* PrivacyInfo.xcprivacy */; };
 		AD10B764E8F6F58BFF8DD21A /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9EA4B8707411374BDB2D5B4A /* Pods_Runner.framework */; };
@@ -129,6 +130,7 @@
 		823E1F30848E192B1BCE512A /* MemoWidgetViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MemoWidgetViews.swift; sourceTree = "<group>"; };
 		8DC0FC15594DCCE7FD277CAB /* CountdownAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CountdownAttributes.swift; sourceTree = "<group>"; };
 		8F1E26DA420B0AF4C7B912D7 /* WidgetBridgeChannel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetBridgeChannel.swift; sourceTree = "<group>"; };
+		CC01CC01CC01CC01CC01CC01 /* DeepLinkChannel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeepLinkChannel.swift; sourceTree = "<group>"; };
 		905703619C3433799E91BE47 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = Flutter/Debug.xcconfig; sourceTree = "<group>"; };
 		9740EEB31CF90195004384FC /* Generated.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Generated.xcconfig; path = Flutter/Generated.xcconfig; sourceTree = "<group>"; };
@@ -302,6 +304,7 @@
 				40A84790141BF4C79BA1659F /* LiveActivityChannel.swift */,
 				590C7AC04939473E6C1C4A29 /* LiveActivityManager.swift */,
 				8F1E26DA420B0AF4C7B912D7 /* WidgetBridgeChannel.swift */,
+				CC01CC01CC01CC01CC01CC01 /* DeepLinkChannel.swift */,
 			);
 			path = Runner;
 			sourceTree = "<group>";
@@ -710,6 +713,7 @@
 				4C18446AEB15B5F1E3117BF8 /* LiveActivityChannel.swift in Sources */,
 				7F96209CC7FBA6F3567EC79B /* LiveActivityManager.swift in Sources */,
 				9B008E09794E942DE3EB5132 /* WidgetBridgeChannel.swift in Sources */,
+				AA01AA01AA01AA01AA01AA01 /* DeepLinkChannel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

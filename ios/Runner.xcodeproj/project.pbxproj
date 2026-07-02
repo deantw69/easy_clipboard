@@ -16,6 +16,7 @@
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
 		3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };
 		4719C260817CDB89275D1A13 /* WidgetBridgeChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBBF9A7E940E7C50C9D2CD18 /* WidgetBridgeChannel.swift */; };
+		AA01AA01AA01AA01AA01AA01 /* DeepLinkChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC01CC01CC01CC01CC01CC01 /* DeepLinkChannel.swift */; };
 		4F0EE7F626EE33FF52E6740D /* MemoWidgetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 851128A4E6BB159987A89294 /* MemoWidgetViews.swift */; };
 		64C6152C60B943BD068A9591 /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 401C2619FBA57613624DFB6F /* Pods_RunnerTests.framework */; };
 		7033CC381501DBDB487E21AD /* MemoWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEFFC387FA21E1999BEC03C0 /* MemoWidgetBundle.swift */; };
@@ -118,6 +119,7 @@
 		C561E319D8C922E856213314 /* SelectMemoIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SelectMemoIntent.swift; sourceTree = "<group>"; };
 		C5F7215BB70EABECB02F08E6 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/AppIntents.framework; sourceTree = DEVELOPER_DIR; };
 		CBBF9A7E940E7C50C9D2CD18 /* WidgetBridgeChannel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetBridgeChannel.swift; sourceTree = "<group>"; };
+		CC01CC01CC01CC01CC01CC01 /* DeepLinkChannel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeepLinkChannel.swift; sourceTree = "<group>"; };
 		D66EEF942FED118600AAC670 /* Share Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Share Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D66EEFA62FED11FF00AAC670 /* Runner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
 		DEFFC387FA21E1999BEC03C0 /* MemoWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MemoWidgetBundle.swift; sourceTree = "<group>"; };
@@ -251,6 +253,7 @@
 				7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 				CBBF9A7E940E7C50C9D2CD18 /* WidgetBridgeChannel.swift */,
+				CC01CC01CC01CC01CC01CC01 /* DeepLinkChannel.swift */,
 			);
 			path = Runner;
 			sourceTree = "<group>";
@@ -607,6 +610,7 @@
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
 				4719C260817CDB89275D1A13 /* WidgetBridgeChannel.swift in Sources */,
+				AA01AA01AA01AA01AA01AA01 /* DeepLinkChannel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

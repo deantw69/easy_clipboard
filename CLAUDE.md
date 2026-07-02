@@ -27,6 +27,15 @@
 - **加 target 用 xcodeproj gem**(objectVersion 70):`.appex` 掛既有 **Embed Foundation Extensions** phase(在 Thin Binary/Embed Pods 前避免 Cycle),Runner 加依賴。**Runner 是傳統 PBXGroup 非同步群組**(只有 Share Extension 是 `PBXFileSystemSynchronizedRootGroup`),故 `WidgetBridgeChannel.swift` 要顯式加進 Runner 的 group + Sources phase;widget 用傳統 group 顯式列 swift 檔。gem 存檔與 pod install 都可能把 objectVersion 降 54,commit 前確認改回 70。
 - **依賴修正**:main 的 `identity.dart`(同步群組碼 Keychain)一直 import `flutter_secure_storage` 卻漏在 main `pubspec.yaml` 宣告(只加在 feat/alarm-tab),導致 main 單獨 build iOS 失敗;已補 `flutter_secure_storage: ^9.2.4` 到 main pubspec。
 
+## 深連結導頁(Deep Link → 分頁,iOS)
+- **需求**:Widget 點擊回 App→切**備忘錄**分頁(共通,兩分支都要);推播/動態島點擊回 App→切**鬧鐘**分頁(僅 alarm 功能,只 `feat/alarm-tab` 有鬧鐘分頁)。**共通基礎建設在 main 開發**,alarm 專屬的 `syncnest://alarm` 觸發源與分頁 index 對應在 `feat/alarm-tab`。
+- **URL scheme `syncnest://`**:`ios/Runner/Info.plist` 的 `CFBundleURLTypes` 第二組(與 Share Extension 的 `ShareMedia-*` 並列)。host 即路由目標:`memo`、`alarm`。Widget 端 `MemoWidget.swift` 加 `.widgetURL(URL(string:"syncnest://memo"))`。
+- **原生接收(單一入口)**:`ios/Runner/DeepLinkChannel.swift`(`NSObject, FlutterPlugin`),在 `AppDelegate.didInitializeImplicitFlutterEngine` 以 `DeepLinkChannel.register(with: pluginRegistry)` 註冊,內部 `registrar.addApplicationDelegate(self)`。**不覆寫 SceneDelegate**——`FlutterSceneDelegate` 會自動把 scene 冷啟動(`willConnectToSession`)與熱啟動(`openURLContexts`)的 URL 轉發到所有 plugin 的 `application(_:open:options:)`(receive_sharing_intent 同機制);自行覆寫會破壞分享流程且有 override/super 編譯風險(`FlutterSceneDelegate` 標頭沒宣告這些 scene 方法)。
+- **冷/熱啟動**:MethodChannel `syncnest/deeplink`。熱啟動即時 `invokeMethod("route", host)`;冷啟動 Dart handler 未就緒時把 host 暫存 `pending`,Dart 端 `getInitial` 取回並清空。
+- **Dart 端**:`lib/core/deep_link.dart`(`DeepLinkService` 單例,僅 iOS,`main.dart` 首幀後 `start()`)收 `route`/呼 `getInitial`,host→`AppTab`(`lib/core/tab_router.dart` 的 enum `{clipboard, memo, alarm}`)交給 `TabRouter.instance.go`。`TabRouter` 用 `ValueNotifier<AppTab?> requested`,`RootPage` 監聽→`_indexForTab` 映射成本分支分頁 index→`setState` 切換→`consume` 清空。
+- **分支差異**:`RootPage._indexForTab`(`root_page.dart`)在 **main** 只有 clipboard=0、memo=1,`alarm` 回 `null`(無鬧鐘分頁,收到即忽略);**feat/alarm-tab** 需把 `alarm` 對到該分支鬧鐘分頁的 index。深連結指定分頁時 `_routedByLink=true`,`_loadLastTab` 不再用 `last_tab` 還原覆蓋(避免搶回)。
+- **pbxproj**:`DeepLinkChannel.swift` 屬 Runner(傳統 PBXGroup),已顯式加進 Runner group + Sources phase(比照 `WidgetBridgeChannel.swift`),objectVersion 維持 70。
+
 ## macOS 建置
 - build release 後**一律**複製 `.app` 到下載資料夾:
   ```bash

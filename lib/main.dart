@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'app_controller.dart';
+import 'core/deep_link.dart';
 import 'core/desktop_tray_service.dart';
 import 'core/hotkey_service.dart';
 import 'core/share_handler.dart';
@@ -47,8 +48,10 @@ void main() async {
         if (Platform.isIOS) {
           final handler =
               ShareHandler(controller: c, navigatorKey: navigatorKey);
-          WidgetsBinding.instance
-              .addPostFrameCallback((_) => handler.start());
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            handler.start();
+            DeepLinkService.instance.start();
+          });
         }
 
         if (DesktopTrayService.isWindows) {

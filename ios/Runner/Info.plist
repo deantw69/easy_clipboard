@@ -16,6 +16,16 @@
 				<string>ShareMedia-$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.philio.syncNest.deeplink</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>syncnest</string>
+			</array>
+		</dict>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>用於在同一個 Wi-Fi 下尋找並傳送內容到你的其他裝置。</string>

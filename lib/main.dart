@@ -48,10 +48,7 @@ void main() async {
         if (Platform.isIOS) {
           final handler =
               ShareHandler(controller: c, navigatorKey: navigatorKey);
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            handler.start();
-            DeepLinkService.instance.start();
-          });
+          WidgetsBinding.instance.addPostFrameCallback((_) => handler.start());
         }
 
         if (DesktopTrayService.isWindows) {
@@ -66,6 +63,12 @@ void main() async {
       child: const SyncNestApp(),
     ),
   );
+
+  // 深連結(Widget)接收:儘早取回冷啟動初始連結。
+  // 冷啟動時 TabRouter 目標可能在 RootPage mount 前就設好,由 RootPage.initState 補套用。
+  if (Platform.isIOS) {
+    DeepLinkService.instance.start();
+  }
 }
 
 class SyncNestApp extends StatelessWidget {

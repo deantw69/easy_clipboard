@@ -12,8 +12,12 @@ import UIKit
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+
+    // 註冊主畫面 Widget(MemoWidget)橋接 channel。
     WidgetBridgeChannel.register(with: engineBridge.pluginRegistry)
-    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "DeepLink") {
+
+    // 深連結(syncnest://):scene URL 由 SceneDelegate 覆寫捕捉後餵給此 channel。
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "DeepLinkChannel") {
       DeepLinkChannel.register(with: registrar)
     }
   }

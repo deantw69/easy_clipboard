@@ -19,7 +19,7 @@
 - [ ] T09 傳檔獨立逾時＋取消按鈕
 - [ ] T10 接收檔案完整性校驗
 - [ ] T11 MemoWidget 深色背景文字對比
-- [ ] T12 Live Activity 殭屍活動清理
+- [x] T12 Live Activity 殭屍活動清理
 - [ ] T13 Share Extension 喚醒主 App 失敗回饋
 - [x] T14 macOS 縮到系統匣（tray）
 - [ ] T15 開機自啟時隱藏視窗背景執行

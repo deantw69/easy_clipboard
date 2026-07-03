@@ -45,6 +45,12 @@ final class LiveActivityManager {
         let liveActivity = Activity<CountdownAttributes>.activities
             .first { $0.activityState == .active }
 
+        // T12 殭屍活動清理:除了要保留更新的目標外,把其餘所有活動(已 end 卻殘留的墓碑、
+        // 重複冒出的多張 active 卡)一律 end,避免堆疊或下次又撈到殭屍導致新活動貼不出來。
+        for zombie in Activity<CountdownAttributes>.activities where zombie.id != liveActivity?.id {
+            Task { await zombie.end(dismissalPolicy: .immediate) }
+        }
+
         // 閒置過渡態:只「就地更新」既有的 active Activity 以保住它(供下一輪背景 update),
         // 沒有就不新建(閒置不該主動冒出一張卡)。
         if isIdle {
@@ -69,10 +75,7 @@ final class LiveActivityManager {
                 }
             }
         } else {
-            // 先清掉殘留的非 active Activity,避免殭屍堆疊或下次又撈到它。
-            for stale in Activity<CountdownAttributes>.activities {
-                Task { await stale.end(dismissalPolicy: .immediate) }
-            }
+            // 殘留活動已在 apply 開頭統一清掉,這裡直接建立新活動。
             let attributes = CountdownAttributes(timerName: label.isEmpty ? "倒數計時" : label)
             do {
                 if #available(iOS 16.2, *) {

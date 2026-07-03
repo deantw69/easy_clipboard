@@ -95,6 +95,14 @@ class Memo {
 class MemoStore extends ChangeNotifier {
   final List<Memo> _memos = [];
 
+  /// 墓碑(`deleted=true`)保留天數:超過此天數的墓碑會在 load / merge 時清除,
+  /// 避免 memos.json 無限長大、同步整包越傳越慢。
+  ///
+  /// 30 天遠大於裝置最長離線間隔:只要所有裝置在 30 天內至少同步過一次,
+  /// 墓碑就已在各機生效,清掉不會讓被刪的資料復活;若真有裝置離線超過 30 天
+  /// 才回來,其舊資料可能復活——這是刻意取捨(離線越久越罕見)。
+  static const int _tombstoneTtlDays = 30;
+
   /// 本地內容變動時的回呼(AppController 用來觸發即時同步推送)。
   VoidCallback? onLocalChange;
 
@@ -150,6 +158,8 @@ class MemoStore extends ChangeNotifier {
           _memos
             ..clear()
             ..addAll(_decode(raw));
+          // 清掉過期墓碑,順手把縮小後的清單寫回。
+          if (_gcTombstones()) await _save();
         }
       }
     } catch (_) {
@@ -236,6 +246,17 @@ class MemoStore extends ChangeNotifier {
     _commit();
   }
 
+  /// 清除過期墓碑:移除 `deleted=true` 且 updatedAt 超過 [_tombstoneTtlDays] 天的記錄。
+  /// 回傳是否有移除(供呼叫端決定是否寫檔)。不寫檔、不通知,由呼叫端統一收尾。
+  bool _gcTombstones() {
+    final cutoff = DateTime.now()
+        .subtract(const Duration(days: _tombstoneTtlDays))
+        .millisecondsSinceEpoch;
+    final before = _memos.length;
+    _memos.removeWhere((m) => m.deleted && m.updatedAt < cutoff);
+    return _memos.length != before;
+  }
+
   Memo? _byId(String id) {
     final idx = _memos.indexWhere((m) => m.id == id);
     return idx < 0 ? null : _memos[idx];
@@ -284,6 +305,7 @@ class MemoStore extends ChangeNotifier {
         _memos
           ..clear()
           ..addAll(byId.values);
+        _gcTombstones();
         _save();
         notifyListeners();
       }

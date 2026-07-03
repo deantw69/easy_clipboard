@@ -32,6 +32,9 @@ class _AlarmPageState extends State<AlarmPage> with WidgetsBindingObserver {
   /// 本輪是否已觸發前景「時間到」通知,避免重複。
   bool _firedThisRound = false;
 
+  /// 停止鈕處理中(等 Firestore 寫入):禁用按鈕、顯示 loading,防重複點擊。
+  bool _stopping = false;
+
   /// 用於顯示的「現在時間」,每秒更新。
   DateTime _now = DateTime.now();
 
@@ -252,6 +255,26 @@ class _AlarmPageState extends State<AlarmPage> with WidgetsBindingObserver {
     await _services.alarm.start();
   }
 
+  /// 停止:先立即靜音(本機,不等 Firestore),再 await 同步停止狀態到其他裝置。
+  /// 寫入期間禁用按鈕(`_stopping`)避免重複點擊;Firestore 失敗顯示 SnackBar。
+  Future<void> _handleStop() async {
+    if (_stopping) return;
+    setState(() => _stopping = true);
+    // 立即靜音(本機),不受下方 Firestore 寫入成敗影響。
+    await _services.alarm.stop();
+    try {
+      await _services.repository.stop();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('停止失敗,請確認網路後重試')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _stopping = false);
+    }
+  }
+
   String _fmt(Duration d) {
     final h = d.inHours.toString().padLeft(2, '0');
     final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
@@ -444,12 +467,17 @@ class _AlarmPageState extends State<AlarmPage> with WidgetsBindingObserver {
                     style: FilledButton.styleFrom(
                       backgroundColor: Theme.of(context).colorScheme.error,
                     ),
-                    onPressed: () {
-                      // 立即靜音(不等 Firestore 來回),同時同步停止狀態。
-                      _services.alarm.stop();
-                      _services.repository.stop();
-                    },
-                    icon: const Icon(Icons.stop),
+                    onPressed: _stopping ? null : _handleStop,
+                    icon: _stopping
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.stop),
                     label: const Text('停止'),
                   ),
                 ],

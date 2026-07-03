@@ -90,9 +90,11 @@ void main() async {
           WidgetsBinding.instance.addPostFrameCallback((_) => handler.start());
         }
 
-        if (DesktopTrayService.isWindows) {
+        if (DesktopTrayService.isDesktop) {
           desktopTray.onWindowShown = () => c.refreshDiscovery();
           desktopTray.init();
+        }
+        if (DesktopTrayService.isWindows) {
           HotkeyService.instance.start(() => desktopTray.toggleWindow());
         }
 

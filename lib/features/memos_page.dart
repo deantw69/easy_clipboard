@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:io';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
@@ -6,6 +10,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../app_controller.dart';
 import '../memos/memo_store.dart';
+
+/// 桌面平台(滑鼠環境)才顯示 hover 浮現的拖曳把手/刪除鈕。
+bool get _isDesktopPlatform =>
+    Platform.isMacOS || Platform.isWindows || Platform.isLinux;
 
 /// 判斷待辦文字是否為網址(以 http(s):// 開頭)。
 bool _isUrl(String text) {
@@ -80,9 +88,9 @@ class _MemosPageState extends State<MemosPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(n > 0
-                ? '已重設,從 $n 台裝置重新同步'
-                : '已重設,但目前找不到其他裝置可拉取(本機暫為空)'),
+            content: Text(
+              n > 0 ? '已重設,從 $n 台裝置重新同步' : '已重設,但目前找不到其他裝置可拉取(本機暫為空)',
+            ),
           ),
         );
       }
@@ -190,12 +198,12 @@ class _MemosPageState extends State<MemosPage> {
               itemCount: memos.length,
               // 桌面端不顯示預設的兩條橫槓拖曳把手,改用整列長按拖曳(與手機一致)。
               buildDefaultDragHandles: false,
-              // 拖曳浮起時只保留卡片本身的陰影,避免出現多餘白邊。
+              // 拖曳浮起時只保留卡片本身的陰影並微放大,強化「正在拖曳」回饋。
               proxyDecorator: (child, index, animation) => Material(
                 color: Colors.transparent,
                 elevation: 6,
                 borderRadius: BorderRadius.circular(12),
-                child: child,
+                child: Transform.scale(scale: 1.02, child: child),
               ),
               onReorder: (oldIndex, newIndex) {
                 if (newIndex > oldIndex) newIndex -= 1;
@@ -211,6 +219,7 @@ class _MemosPageState extends State<MemosPage> {
                   index: i,
                   child: _MemoCard(
                     memo: memo,
+                    index: i,
                     collapsed: _collapsed.contains(memo.id),
                     onToggleCollapse: () => setState(() {
                       if (!_collapsed.add(memo.id)) _collapsed.remove(memo.id);
@@ -224,151 +233,255 @@ class _MemosPageState extends State<MemosPage> {
 }
 
 /// 便利貼卡片:顯示文字與待辦勾選;點卡片進編輯。
-/// 向左滑露出固定寬度的刪除鈕(仿 Line),點紅色區才跳確認;右上角可收合/展開。
-class _MemoCard extends StatelessWidget {
+/// 向左滑露出固定寬度的刪除鈕(仿 Line);桌面滑鼠 hover 另浮現拖曳把手與刪除鈕。
+/// 刪除立即生效,SnackBar 提供 5 秒「復原」;右上角可收合/展開,收合時標題截為單行。
+class _MemoCard extends StatefulWidget {
   final Memo memo;
+  final int index;
   final bool collapsed;
   final VoidCallback onToggleCollapse;
   const _MemoCard({
     required this.memo,
+    required this.index,
     required this.collapsed,
     required this.onToggleCollapse,
   });
 
   @override
+  State<_MemoCard> createState() => _MemoCardState();
+}
+
+class _MemoCardState extends State<_MemoCard> {
+  bool _hovered = false;
+
+  /// 立即刪除並以 SnackBar 提供復原(取代原本的確認對話框)。
+  void _deleteWithUndo() {
+    final store = context.read<MemoStore>();
+    final messenger = ScaffoldMessenger.of(context);
+    final id = widget.memo.id;
+    store.delete(id);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: const Text('已刪除備忘錄'),
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: '復原',
+            onPressed: () => store.restore(id),
+          ),
+        ),
+      );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final store = context.read<MemoStore>();
+    final memo = widget.memo;
+    final collapsed = widget.collapsed;
     final hasBody = memo.todos.isNotEmpty;
     final hasText = memo.text.trim().isNotEmpty;
     return _SwipeRevealDelete(
-      onDelete: () async {
-        final ok = await _confirmDelete(context);
-        if (ok) store.delete(memo.id);
-        return ok;
-      },
-      child: Card(
-        color: _memoColorOf(memo),
-        margin: const EdgeInsets.symmetric(vertical: 6),
-        child: InkWell(
-          onTap: () => _openEditor(context, store, memo),
-          highlightColor: Colors.transparent,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 標題列 + 收合/展開鈕(原刪除鈕位置)。
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: hasText
-                          ? Text(
-                              memo.text,
-                              style: const TextStyle(
-                                  fontSize: 15, color: Colors.black87),
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                    if (hasBody)
-                      SizedBox(
-                        height: 22,
-                        child: IconButton(
-                          icon: Icon(
-                            collapsed ? Icons.expand_more : Icons.expand_less,
-                            size: 20,
-                            color: Colors.black45,
-                          ),
-                          tooltip: collapsed ? '展開' : '收合',
-                          padding: EdgeInsets.zero,
-                          visualDensity: VisualDensity.compact,
-                          constraints:
-                              const BoxConstraints.tightFor(width: 28),
-                          onPressed: onToggleCollapse,
-                        ),
+      onDelete: _deleteWithUndo,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: Card(
+          color: _memoColorOf(memo),
+          margin: const EdgeInsets.symmetric(vertical: 6),
+          child: InkWell(
+            onTap: () => _openEditor(context, store, memo),
+            highlightColor: Colors.transparent,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 標題列 + hover 操作鈕 + 收合/展開鈕。
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: hasText
+                            ? Text(
+                                memo.text,
+                                // 收合時只留單行標題,避免超長文字撐開卡片。
+                                maxLines: collapsed ? 1 : null,
+                                overflow: collapsed
+                                    ? TextOverflow.ellipsis
+                                    : null,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  color: Colors.black87,
+                                ),
+                              )
+                            : const SizedBox.shrink(),
                       ),
-                  ],
-                ),
-                if (!collapsed)
-                  for (final todo in memo.todos)
-                    Builder(builder: (context) {
-                      final isUrl = _isUrl(todo.text);
-                      return Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Row(
-                        children: [
-                          // 只有 checkbox 可點選勾選。
-                          InkWell(
-                            borderRadius: BorderRadius.circular(4),
-                            onTap: () => store.toggleTodo(memo.id, todo.id),
-                            child: Padding(
-                              padding: const EdgeInsets.all(2),
-                              child: Icon(
-                                todo.done
-                                    ? Icons.check_box
-                                    : Icons.check_box_outline_blank,
-                                size: 20,
-                                color: Colors.black54,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Builder(
-                              builder: (_) {
-                                final baseStyle = TextStyle(
-                                  color:
-                                      isUrl ? Colors.blue.shade700 : Colors.black87,
-                                  decoration: todo.done
-                                      ? TextDecoration.lineThrough
-                                      : (isUrl
-                                          ? TextDecoration.underline
-                                          : null),
-                                  decorationColor:
-                                      isUrl ? Colors.blue.shade700 : null,
-                                );
-                                if (!isUrl) {
-                                  return Text(todo.text, style: baseStyle);
-                                }
-                                return Text.rich(
-                                  TextSpan(
-                                    text: todo.text,
-                                    style: baseStyle,
-                                    recognizer: TapGestureRecognizer()
-                                      ..onTap = () => _openUrl(todo.text),
+                      // 桌面 hover 才浮現:明確的拖曳把手與刪除鈕
+                      // (touch 裝置維持長按拖曳、左滑刪除)。
+                      // maintainSize 保留空間,避免 hover 時版面跳動。
+                      if (_isDesktopPlatform)
+                        Visibility(
+                          visible: _hovered,
+                          maintainSize: true,
+                          maintainAnimation: true,
+                          maintainState: true,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ReorderableDragStartListener(
+                                index: widget.index,
+                                child: const MouseRegion(
+                                  cursor: SystemMouseCursors.grab,
+                                  child: Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 2,
+                                      vertical: 2,
+                                    ),
+                                    child: Icon(
+                                      Icons.drag_indicator,
+                                      size: 18,
+                                      color: Colors.black38,
+                                    ),
                                   ),
-                                );
-                              },
-                            ),
+                                ),
+                              ),
+                              SizedBox(
+                                height: 22,
+                                child: IconButton(
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    size: 18,
+                                    color: Colors.black45,
+                                  ),
+                                  tooltip: '刪除',
+                                  padding: EdgeInsets.zero,
+                                  visualDensity: VisualDensity.compact,
+                                  constraints: const BoxConstraints.tightFor(
+                                    width: 24,
+                                  ),
+                                  onPressed: _deleteWithUndo,
+                                ),
+                              ),
+                            ],
                           ),
-                          // 只有網址才顯示右側複製鈕。
-                          if (isUrl) ...[
-                            const SizedBox(width: 6),
-                            IconButton(
-                              icon: const Icon(Icons.copy,
-                                  size: 18, color: Colors.black45),
-                              tooltip: '複製',
-                              padding: EdgeInsets.zero,
-                              visualDensity: VisualDensity.compact,
-                              constraints:
-                                  const BoxConstraints.tightFor(width: 24),
-                              onPressed: () async {
-                                await Clipboard.setData(
-                                    ClipboardData(text: todo.text));
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('已複製')),
-                                  );
-                                }
-                              },
+                        ),
+                      if (hasBody)
+                        SizedBox(
+                          height: 22,
+                          child: IconButton(
+                            icon: Icon(
+                              collapsed ? Icons.expand_more : Icons.expand_less,
+                              size: 20,
+                              color: Colors.black45,
                             ),
-                            const SizedBox(width: 6),
-                          ],
-                        ],
+                            tooltip: collapsed ? '展開' : '收合',
+                            padding: EdgeInsets.zero,
+                            visualDensity: VisualDensity.compact,
+                            constraints: const BoxConstraints.tightFor(
+                              width: 28,
+                            ),
+                            onPressed: widget.onToggleCollapse,
+                          ),
+                        ),
+                    ],
+                  ),
+                  if (!collapsed)
+                    for (final todo in memo.todos)
+                      Builder(
+                        builder: (context) {
+                          final isUrl = _isUrl(todo.text);
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Row(
+                              children: [
+                                // 只有 checkbox 可點選勾選。
+                                InkWell(
+                                  borderRadius: BorderRadius.circular(4),
+                                  onTap: () =>
+                                      store.toggleTodo(memo.id, todo.id),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(2),
+                                    child: Icon(
+                                      todo.done
+                                          ? Icons.check_box
+                                          : Icons.check_box_outline_blank,
+                                      size: 20,
+                                      color: Colors.black54,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Builder(
+                                    builder: (_) {
+                                      final baseStyle = TextStyle(
+                                        color: isUrl
+                                            ? Colors.blue.shade700
+                                            : Colors.black87,
+                                        decoration: todo.done
+                                            ? TextDecoration.lineThrough
+                                            : (isUrl
+                                                  ? TextDecoration.underline
+                                                  : null),
+                                        decorationColor: isUrl
+                                            ? Colors.blue.shade700
+                                            : null,
+                                      );
+                                      if (!isUrl) {
+                                        return Text(
+                                          todo.text,
+                                          style: baseStyle,
+                                        );
+                                      }
+                                      return Text.rich(
+                                        TextSpan(
+                                          text: todo.text,
+                                          style: baseStyle,
+                                          recognizer: TapGestureRecognizer()
+                                            ..onTap = () => _openUrl(todo.text),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                                // 只有網址才顯示右側複製鈕。
+                                if (isUrl) ...[
+                                  const SizedBox(width: 6),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.copy,
+                                      size: 18,
+                                      color: Colors.black45,
+                                    ),
+                                    tooltip: '複製',
+                                    padding: EdgeInsets.zero,
+                                    visualDensity: VisualDensity.compact,
+                                    constraints: const BoxConstraints.tightFor(
+                                      width: 24,
+                                    ),
+                                    onPressed: () async {
+                                      await Clipboard.setData(
+                                        ClipboardData(text: todo.text),
+                                      );
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(content: Text('已複製')),
+                                        );
+                                      }
+                                    },
+                                  ),
+                                  const SizedBox(width: 6),
+                                ],
+                              ],
+                            ),
+                          );
+                        },
                       ),
-                    );
-                    }),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -377,11 +490,12 @@ class _MemoCard extends StatelessWidget {
   }
 }
 
-/// 向左滑露出固定寬度的紅色刪除鈕;點紅色區才觸發 [onDelete](回傳是否已刪除)。
+/// 向左滑露出固定寬度的紅色刪除鈕;點紅色區觸發 [onDelete]
+/// (立即刪除,復原機制由呼叫端的 SnackBar 提供)。
 /// 紅色鈕與卡片同高同圓角貼齊,避免露出多餘白邊。
 class _SwipeRevealDelete extends StatefulWidget {
   final Widget child;
-  final Future<bool> Function() onDelete;
+  final VoidCallback onDelete;
   const _SwipeRevealDelete({required this.child, required this.onDelete});
 
   @override
@@ -392,14 +506,16 @@ class _SwipeRevealDeleteState extends State<_SwipeRevealDelete>
     with SingleTickerProviderStateMixin {
   static const double _revealWidth = 76;
   late final AnimationController _ctrl = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 180));
+    vsync: this,
+    duration: const Duration(milliseconds: 180),
+  );
   Animation<double>? _anim;
   double _dx = 0;
 
   void _animateTo(double target) {
     _anim = Tween<double>(begin: _dx, end: target).animate(
-        CurvedAnimation(parent: _ctrl, curve: Curves.easeOut))
-      ..addListener(() => setState(() => _dx = _anim!.value));
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeOut),
+    )..addListener(() => setState(() => _dx = _anim!.value));
     _ctrl.forward(from: 0);
   }
 
@@ -409,11 +525,6 @@ class _SwipeRevealDeleteState extends State<_SwipeRevealDelete>
     super.dispose();
   }
 
-  Future<void> _handleDelete() async {
-    final deleted = await widget.onDelete();
-    if (!deleted && mounted) _animateTo(0); // 取消則收回
-  }
-
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -421,26 +532,26 @@ class _SwipeRevealDeleteState extends State<_SwipeRevealDelete>
         // 紅色刪除鈕(與卡片相同 vertical margin / 圓角,貼齊不留白邊)。
         // 收合狀態(_dx==0)不繪製,避免卡片右側圓角透出紅色。
         if (_dx != 0)
-        Positioned.fill(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: GestureDetector(
-                onTap: _handleDelete,
-                child: Container(
-                  width: _revealWidth,
-                  decoration: BoxDecoration(
-                    color: Colors.red,
-                    borderRadius: BorderRadius.circular(12),
+          Positioned.fill(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: GestureDetector(
+                  onTap: widget.onDelete,
+                  child: Container(
+                    width: _revealWidth,
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(Icons.delete, color: Colors.white),
                   ),
-                  alignment: Alignment.center,
-                  child: const Icon(Icons.delete, color: Colors.white),
                 ),
               ),
             ),
           ),
-        ),
         GestureDetector(
           onHorizontalDragUpdate: (d) => setState(() {
             _dx = (_dx + d.delta.dx).clamp(-_revealWidth, 0.0);
@@ -457,54 +568,12 @@ class _SwipeRevealDeleteState extends State<_SwipeRevealDelete>
   }
 }
 
-/// 刪除前確認。
-Future<bool> _confirmDelete(BuildContext context) async {
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('刪除備忘錄'),
-      content: const Text('確定要刪除這則備忘錄嗎?'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, false),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(ctx, true),
-          child: const Text('刪除'),
-        ),
-      ],
-    ),
-  );
-  return ok ?? false;
-}
-
-/// 刪除待辦前確認。
-Future<bool> _confirmRemoveTodo(BuildContext context, String text) async {
-  final label = text.trim();
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('刪除待辦'),
-      content: Text(label.isEmpty ? '確定要刪除這個待辦項目嗎?' : '確定要刪除「$label」嗎?'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, false),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(ctx, true),
-          child: const Text('刪除'),
-        ),
-      ],
-    ),
-  );
-  return ok ?? false;
-}
-
 /// 開啟編輯器([memo] 為 null 表示新增)。
 Future<void> _openEditor(
-    BuildContext context, MemoStore store, Memo? memo) async {
+  BuildContext context,
+  MemoStore store,
+  Memo? memo,
+) async {
   await showDialog<void>(
     context: context,
     builder: (_) => _MemoEditor(store: store, memo: memo),
@@ -525,7 +594,13 @@ class _MemoEditorState extends State<_MemoEditor> {
   // 編輯時用暫存的待辦清單,按「儲存」才寫回。
   late final List<MemoTodo> _todos;
   final List<TextEditingController> _todoCtrls = [];
+  final List<FocusNode> _todoNodes = [];
   late int? _colorValue;
+
+  // 最後一筆被刪的待辦,供編輯器內「復原」(5 秒後失效)。
+  MemoTodo? _removedTodo;
+  int _removedIndex = 0;
+  Timer? _undoTimer;
 
   @override
   void initState() {
@@ -535,18 +610,23 @@ class _MemoEditorState extends State<_MemoEditor> {
     _todos = widget.memo == null
         ? []
         : widget.memo!.todos
-            .map((t) => MemoTodo(id: t.id, text: t.text, done: t.done))
-            .toList();
+              .map((t) => MemoTodo(id: t.id, text: t.text, done: t.done))
+              .toList();
     for (final t in _todos) {
       _todoCtrls.add(TextEditingController(text: t.text));
+      _todoNodes.add(FocusNode());
     }
   }
 
   @override
   void dispose() {
+    _undoTimer?.cancel();
     _text.dispose();
     for (final c in _todoCtrls) {
       c.dispose();
+    }
+    for (final n in _todoNodes) {
+      n.dispose();
     }
     super.dispose();
   }
@@ -555,17 +635,49 @@ class _MemoEditorState extends State<_MemoEditor> {
     setState(() {
       _todos.add(MemoTodo.create());
       _todoCtrls.add(TextEditingController());
+      _todoNodes.add(FocusNode());
+    });
+    // 等新列 build 完成後聚焦,配合 Enter 連續輸入。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _todoNodes.isNotEmpty) _todoNodes.last.requestFocus();
     });
   }
 
-  Future<void> _removeTodo(int i) async {
-    // 同步最新文字以顯示在確認對話框。
-    _todos[i].text = _todoCtrls[i].text;
-    final ok = await _confirmRemoveTodo(context, _todos[i].text);
-    if (!ok || !mounted) return;
+  /// Enter:非最後一列跳到下一列;最後一列有內容則新增下一列。
+  void _submitTodo(int i) {
+    if (i < _todos.length - 1) {
+      _todoNodes[i + 1].requestFocus();
+    } else if (_todoCtrls[i].text.trim().isNotEmpty) {
+      _addTodo();
+    }
+  }
+
+  /// 立即移除待辦,保留一筆可在編輯器內「復原」。
+  void _removeTodo(int i) {
+    _undoTimer?.cancel();
+    final removed = _todos[i]..text = _todoCtrls[i].text;
     setState(() {
       _todos.removeAt(i);
       _todoCtrls.removeAt(i).dispose();
+      _todoNodes.removeAt(i).dispose();
+      _removedTodo = removed;
+      _removedIndex = i;
+    });
+    _undoTimer = Timer(const Duration(seconds: 5), () {
+      if (mounted) setState(() => _removedTodo = null);
+    });
+  }
+
+  void _undoRemoveTodo() {
+    final t = _removedTodo;
+    if (t == null) return;
+    _undoTimer?.cancel();
+    setState(() {
+      final i = _removedIndex.clamp(0, _todos.length);
+      _todos.insert(i, t);
+      _todoCtrls.insert(i, TextEditingController(text: t.text));
+      _todoNodes.insert(i, FocusNode());
+      _removedTodo = null;
     });
   }
 
@@ -598,70 +710,111 @@ class _MemoEditorState extends State<_MemoEditor> {
 
   @override
   Widget build(BuildContext context) {
+    // 依螢幕自適應:桌面大螢幕加寬(上限 560),小螢幕扣掉 dialog 內外邊距;
+    // 高度限制在螢幕 6 成,避免長待辦清單把動作按鈕擠出畫面。
+    final size = MediaQuery.sizeOf(context);
+    final width = math.min(560.0, math.max(280.0, size.width - 144));
+    final maxHeight = math.max(200.0, size.height * 0.6);
     return AlertDialog(
       title: Text(widget.memo == null ? '新增備忘錄' : '編輯備忘錄'),
-      content: SizedBox(
-        width: 360,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 色票選擇。
-              Wrap(
-                spacing: 10,
-                children: [
-                  for (final c in kMemoColors)
-                    _ColorSwatch(
-                      color: c,
-                      selected:
-                          (_colorValue ?? _defaultMemoColor.toARGB32()) ==
-                              c.toARGB32(),
-                      onTap: () => setState(() => _colorValue =
-                          c.toARGB32() == _defaultMemoColor.toARGB32()
-                              ? null
-                              : c.toARGB32()),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _text,
-                maxLines: null,
-                decoration: const InputDecoration(
-                  hintText: '內容',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              for (var i = 0; i < _todos.length; i++)
-                Row(
+      content: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: SizedBox(
+          width: width,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 色票選擇。
+                Wrap(
+                  spacing: 10,
                   children: [
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: _todoCtrls[i],
-                        decoration: const InputDecoration(
-                          isDense: true,
-                          hintText: '待辦項目',
+                    for (final c in kMemoColors)
+                      _ColorSwatch(
+                        color: c,
+                        selected:
+                            (_colorValue ?? _defaultMemoColor.toARGB32()) ==
+                            c.toARGB32(),
+                        onTap: () => setState(
+                          () => _colorValue =
+                              c.toARGB32() == _defaultMemoColor.toARGB32()
+                              ? null
+                              : c.toARGB32(),
                         ),
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, size: 18),
-                      onPressed: () => _removeTodo(i),
-                    ),
                   ],
                 ),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  icon: const Icon(Icons.add),
-                  label: const Text('新增待辦'),
-                  onPressed: _addTodo,
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _text,
+                  maxLines: null,
+                  decoration: const InputDecoration(
+                    hintText: '內容',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 12),
+                for (var i = 0; i < _todos.length; i++)
+                  Row(
+                    children: [
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _todoCtrls[i],
+                          focusNode: _todoNodes[i],
+                          textInputAction: TextInputAction.next,
+                          // 覆寫預設行為:Enter 跳下一列或在最後一列連續新增。
+                          onEditingComplete: () => _submitTodo(i),
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            hintText: '待辦項目',
+                          ),
+                        ),
+                      ),
+                      // 排除 Tab 焦點,讓 Tab 只在待辦欄位間跳。
+                      ExcludeFocus(
+                        child: IconButton(
+                          icon: const Icon(Icons.close, size: 18),
+                          tooltip: '刪除待辦',
+                          onPressed: () => _removeTodo(i),
+                        ),
+                      ),
+                    ],
+                  ),
+                if (_removedTodo != null)
+                  Row(
+                    children: [
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _removedTodo!.text.trim().isEmpty
+                              ? '已刪除待辦'
+                              : '已刪除「${_removedTodo!.text.trim()}」',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.black45,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _undoRemoveTodo,
+                        child: const Text('復原'),
+                      ),
+                    ],
+                  ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    icon: const Icon(Icons.add),
+                    label: const Text('新增待辦'),
+                    onPressed: _addTodo,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -681,8 +834,11 @@ class _ColorSwatch extends StatelessWidget {
   final Color color;
   final bool selected;
   final VoidCallback onTap;
-  const _ColorSwatch(
-      {required this.color, required this.selected, required this.onTap});
+  const _ColorSwatch({
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -22,10 +22,10 @@ class MemoTodo {
   Map<String, dynamic> toJson() => {'id': id, 'text': text, 'done': done};
 
   factory MemoTodo.fromJson(Map<String, dynamic> j) => MemoTodo(
-        id: j['id'] as String,
-        text: (j['text'] as String?) ?? '',
-        done: (j['done'] as bool?) ?? false,
-      );
+    id: j['id'] as String,
+    text: (j['text'] as String?) ?? '',
+    done: (j['done'] as bool?) ?? false,
+  );
 }
 
 /// 一則備忘錄(便利貼)。
@@ -56,35 +56,35 @@ class Memo {
   }) : todos = todos ?? [];
 
   factory Memo.create({String text = ''}) => Memo(
-        id: const Uuid().v4(),
-        text: text,
-        updatedAt: DateTime.now().millisecondsSinceEpoch,
-      );
+    id: const Uuid().v4(),
+    text: text,
+    updatedAt: DateTime.now().millisecondsSinceEpoch,
+  );
 
   /// 更新內容後呼叫,刷新 updatedAt(同步合併依此判斷新舊)。
   void touch() => updatedAt = DateTime.now().millisecondsSinceEpoch;
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'text': text,
-        'todos': todos.map((t) => t.toJson()).toList(),
-        'updatedAt': updatedAt,
-        'deleted': deleted,
-        'colorValue': colorValue,
-        'sortKey': sortKey,
-      };
+    'id': id,
+    'text': text,
+    'todos': todos.map((t) => t.toJson()).toList(),
+    'updatedAt': updatedAt,
+    'deleted': deleted,
+    'colorValue': colorValue,
+    'sortKey': sortKey,
+  };
 
   factory Memo.fromJson(Map<String, dynamic> j) => Memo(
-        id: j['id'] as String,
-        text: (j['text'] as String?) ?? '',
-        todos: ((j['todos'] as List?) ?? [])
-            .map((e) => MemoTodo.fromJson(e as Map<String, dynamic>))
-            .toList(),
-        updatedAt: (j['updatedAt'] as num?)?.toInt() ?? 0,
-        deleted: (j['deleted'] as bool?) ?? false,
-        colorValue: (j['colorValue'] as num?)?.toInt(),
-        sortKey: (j['sortKey'] as num?)?.toInt() ?? 0,
-      );
+    id: j['id'] as String,
+    text: (j['text'] as String?) ?? '',
+    todos: ((j['todos'] as List?) ?? [])
+        .map((e) => MemoTodo.fromJson(e as Map<String, dynamic>))
+        .toList(),
+    updatedAt: (j['updatedAt'] as num?)?.toInt() ?? 0,
+    deleted: (j['deleted'] as bool?) ?? false,
+    colorValue: (j['colorValue'] as num?)?.toInt(),
+    sortKey: (j['sortKey'] as num?)?.toInt() ?? 0,
+  );
 }
 
 /// 備忘錄的本地儲存與跨裝置合併。
@@ -226,6 +226,16 @@ class MemoStore extends ChangeNotifier {
     _commit();
   }
 
+  /// 復原剛刪除的備忘錄(取消墓碑);touch 讓復原帶較新時間戳,
+  /// 在 LWW 合併時贏過先前同步出去的墓碑。
+  void restore(String id) {
+    final memo = _byId(id);
+    if (memo == null || !memo.deleted) return;
+    memo.deleted = false;
+    memo.touch();
+    _commit();
+  }
+
   Memo? _byId(String id) {
     final idx = _memos.indexWhere((m) => m.id == id);
     return idx < 0 ? null : _memos[idx];
@@ -247,8 +257,7 @@ class MemoStore extends ChangeNotifier {
 
   // ---- 同步 ----
 
-  String exportJson() =>
-      jsonEncode(_memos.map((m) => m.toJson()).toList());
+  String exportJson() => jsonEncode(_memos.map((m) => m.toJson()).toList());
 
   static List<Memo> _decode(String raw) => (jsonDecode(raw) as List)
       .map((e) => Memo.fromJson(e as Map<String, dynamic>))

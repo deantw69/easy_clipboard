@@ -7,8 +7,10 @@ import 'package:window_manager/window_manager.dart';
 
 import 'window_bounds_service.dart';
 
-/// Windows 桌面整合:
-/// - 最小化 / 關閉視窗 → 隱藏到右下角系統匣。
+/// 桌面(macOS / Windows)系統匣整合:
+/// - Windows:最小化 / 關閉視窗 → 隱藏到右下角系統匣。
+/// - macOS:關閉視窗 → 隱藏到狀態列(最小化維持系統慣例進 Dock);
+///   點 Dock 圖示也能叫回視窗(AppDelegate.applicationShouldHandleReopen)。
 /// - 系統匣圖示:左鍵點擊還原視窗;右鍵叫出選單。
 class DesktopTrayService with TrayListener, WindowListener {
   bool _started = false;
@@ -40,13 +42,21 @@ class DesktopTrayService with TrayListener, WindowListener {
   }
 
   Future<void> init() async {
-    if (!isWindows || _started) return;
+    if (!isDesktop || _started) return;
     try {
       await windowManager.setPreventClose(true);
       windowManager.addListener(this);
       trayManager.addListener(this);
 
-      await trayManager.setIcon('assets/icon/tray_icon.ico');
+      if (Platform.isMacOS) {
+        // 狀態列用 template image(黑+alpha),系統依深淺色自動反白。
+        await trayManager.setIcon(
+          'assets/icon/tray_icon_macos.png',
+          isTemplate: true,
+        );
+      } else {
+        await trayManager.setIcon('assets/icon/tray_icon.ico');
+      }
       await trayManager.setToolTip('SyncNest');
 
       await _rebuildMenu();
@@ -94,7 +104,13 @@ class DesktopTrayService with TrayListener, WindowListener {
     try {
       await trayManager.destroy();
     } catch (_) {}
-    await windowManager.close();
+    if (Platform.isMacOS) {
+      // macOS 的 close() 只關視窗不結束 App(delegate 對最後視窗關閉回 false),
+      // 要用 destroy()(NSApp.terminate)才會真正退出。
+      await windowManager.destroy();
+    } else {
+      await windowManager.close();
+    }
   }
 
   // ---- TrayListener ----
@@ -125,5 +141,8 @@ class DesktopTrayService with TrayListener, WindowListener {
   }
 
   @override
-  void onWindowMinimize() async => await windowManager.hide();
+  void onWindowMinimize() async {
+    // macOS 最小化維持系統慣例(進 Dock);Windows 最小化即收進系統匣。
+    if (isWindows) await windowManager.hide();
+  }
 }

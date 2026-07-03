@@ -58,9 +58,12 @@
 - Xcode 26.5 專案 objectVersion=70,舊 xcodeproj gem 需手動在 `xcodeproj/constants.rb` 補 `70 => 'Xcode 16.0'`。
 - **`Runner.xcodeproj/project.pbxproj` 反覆出現 diff 的真相**:`pod install`(由 `flutter build ios`/`flutter run`/手動觸發)整合 Pods 時用 `xcodeproj` gem 重新序列化 Runner.xcodeproj,把 Xcode 26 緊湊格式改成 gem 的多行格式(synchronized group 展開多行、`PBXFileSystemSynchronizedBuildFileExceptionSet` 註解換成人類可讀字串、刪掉空的 `inputPaths`/`outputPaths`)。**這是純排版 churn,`pod install` 不會降 objectVersion**(實測仍保 70)。**曾見的 `objectVersion 70→54` 只來自當初用 xcodeproj gem 加 Widget 的腳本,不是 pod install**。解法:把 gem 格式(objectVersion 70)commit 進去當基準,之後 pod install 讀自家格式原樣寫回=零 diff;唯有偶爾在 Xcode GUI 存檔才會又被改回緊湊格式。
 
-## Windows 系統匣(Minimize to Tray)
-- `lib/core/desktop_tray_service.dart`,僅 Windows。套件 `tray_manager` + `window_manager`。
-- 點 X / 最小化 → 隱藏到匣(不結束);左鍵還原、右鍵選單(顯示/結束)。匣圖示 `assets/icon/tray_icon.ico`。`main.dart` 在 `runApp()` 前 `ensureInitialized()`。還原時觸發 `AppController.refreshDiscovery()` 重掃 mDNS。
+## 桌面系統匣(Minimize to Tray,macOS / Windows)
+- `lib/core/desktop_tray_service.dart`。套件 `tray_manager` + `window_manager`。左鍵還原、右鍵選單(顯示/結束);還原時觸發 `AppController.refreshDiscovery()` 重掃 mDNS。`main.dart` 在 `runApp()` 前 `ensureInitialized()`。
+- **Windows**:點 X / 最小化 → 隱藏到匣(不結束)。匣圖示 `assets/icon/tray_icon.ico`。
+- **macOS**:點紅點關窗 → 隱藏到狀態列;**最小化維持系統慣例進 Dock(不攔截)**。圖示 `assets/icon/tray_icon_macos.png`(**template image**:黑+alpha silhouette,系統依深淺色自動反白,`setIcon(..., isTemplate: true)`;.ico 不能給 macOS 用)。視窗隱藏後點 Dock 圖示叫回視窗靠 `AppDelegate.applicationShouldHandleReopen`(此路徑不經 Dart,不觸發 refreshDiscovery,靠桌面 15 秒重掃補)。
+- **macOS 踩雷:`applicationShouldTerminateAfterLastWindowClosed` 必須回 `false`**——即使 preventClose 攔下了 close、只是 orderOut 隱藏,AppKit 仍會對「最後一般視窗離開螢幕」觸發此檢查(有無 NSStatusItem 都一樣),回 true(Flutter 模板預設)= 點紅點直接殺 App。連帶:改 false 後 `windowManager.close()` 在 macOS 只關視窗不退出,tray「結束」`_exitApp` 在 macOS 要改用 `windowManager.destroy()`(=`NSApp.terminate`);Cmd+Q 走 `applicationShouldTerminate` 鏈不受影響。
+- **與 `feat/alarm-tab` 的 `menu_bar_service.dart`(macOS 狀態列倒數顯示)合併時必須整合成同一個 tray 圖示**——trayManager 單例只有一個 statusItem,兩邊各自 setIcon/setContextMenu 會互相覆蓋,需做成倒數文字+選單並存,不能各建一個。
 
 ## Windows 全域快捷鍵(切換視窗顯示/隱藏)
 - `lib/core/hotkey_service.dart`(單例),僅 Windows。套件 `hotkey_manager`(Win32 `RegisterHotKey`,`HotKeyScope.system`,不需前景)。預設 `Ctrl+Alt+C`,存 appSupport `hotkey.json`。

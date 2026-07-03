@@ -397,17 +397,58 @@ class _DeviceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final reachable = device.isReachable;
+    final subtitle = reachable
+        ? '${device.platform} · ${device.host}:${device.port}'
+        : '${device.platform} · 尚未解析';
+    final disabledColor = Theme.of(context).disabledColor;
     return ListTile(
-      leading: const Icon(Icons.devices),
-      title: Text(device.name),
-      subtitle: Text('${device.platform} · ${device.host}:${device.port}'),
-      trailing: const Icon(Icons.chevron_right),
+      leading: Stack(
+        alignment: Alignment.bottomRight,
+        children: [
+          const Icon(Icons.devices),
+          // 在線狀態小圓點:已解析綠、未解析灰。
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: reachable ? Colors.green : Colors.grey,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Theme.of(context).canvasColor,
+                width: 1.5,
+              ),
+            ),
+          ),
+        ],
+      ),
+      title: Text(
+        device.name,
+        style: reachable ? null : TextStyle(color: disabledColor),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: reachable ? null : TextStyle(color: disabledColor),
+      ),
+      trailing: Icon(
+        Icons.chevron_right,
+        color: reachable ? null : disabledColor,
+      ),
       // 手機:跳傳送選單;桌面:照舊進第二頁(保留拖曳/⌘Ctrl+V)。
-      onTap: () => _isDesktop
-          ? Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => DevicePage(device: device)),
-            )
-          : _showSendSheet(context, device),
+      // 未解析裝置禁點,點擊(ListTile enabled=false 已擋)不做事;
+      // 但仍給 onTap 提示以防某些平台仍可觸發。
+      onTap: reachable
+          ? () => _isDesktop
+              ? Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => DevicePage(device: device)),
+                )
+              : _showSendSheet(context, device)
+          : () => ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('裝置尚未解析,請稍候或重新整理'),
+                  duration: Duration(seconds: 2),
+                ),
+              ),
     );
   }
 }

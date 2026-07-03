@@ -250,7 +250,15 @@ class LanTransport implements Transport {
 
   // ---- helpers ----
 
-  String _url(DeviceInfo t, String path) => 'http://${t.host}:${t.port}/$path';
+  String _url(DeviceInfo t, String path) {
+    final host = t.host;
+    // host 未解析(mDNS 尚未拿到 IP)時直接擋下,避免組出 http://null:port
+    // 這種必然逾時的請求,讓上層 try-catch 立即以清楚訊息回報。
+    if (host == null || host.isEmpty) {
+      throw StateError('裝置尚未解析,請稍候或重新整理');
+    }
+    return 'http://$host:${t.port}/$path';
+  }
 
   static String _encodeEnvelope(TransferEnvelope env) =>
       base64Url.encode(utf8.encode(jsonEncode(env.toJson())));

@@ -190,6 +190,7 @@ class _SettingsDialog extends StatefulWidget {
 
 class _SettingsDialogState extends State<_SettingsDialog> {
   bool? _autostart;
+  bool _startHidden = false;
   bool _busy = false;
   HotKey? _hotKey;
   String? _storagePath;
@@ -199,6 +200,9 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     super.initState();
     AutostartService.isEnabled().then((v) {
       if (mounted) setState(() => _autostart = v);
+    });
+    AutostartService.isStartHiddenEnabled().then((v) {
+      if (mounted) setState(() => _startHidden = v);
     });
     if (HotkeyService.supported) {
       _hotKey = HotkeyService.instance.current;
@@ -252,6 +256,16 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     if (mounted) setState(() => _hotKey = HotkeyService.instance.current);
   }
 
+  Future<void> _toggleStartHidden(bool value) async {
+    setState(() => _busy = true);
+    try {
+      await AutostartService.setStartHidden(value);
+      if (mounted) setState(() => _startHidden = value);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _toggle(bool value) async {
     setState(() => _busy = true);
     try {
@@ -283,6 +297,15 @@ class _SettingsDialogState extends State<_SettingsDialog> {
               subtitle: const Text('登入系統時自動開啟 SyncNest'),
               value: _autostart ?? false,
               onChanged: (_autostart == null || _busy) ? null : _toggle,
+            ),
+          // 自啟時隱藏視窗:僅在開機自啟已開啟時顯示。
+          if (AutostartService.supported && (_autostart ?? false))
+            SwitchListTile(
+              contentPadding: const EdgeInsets.only(left: 16),
+              title: const Text('自啟時隱藏視窗'),
+              subtitle: const Text('登入啟動時只縮到系統匣背景執行,用快捷鍵/匣圖示呼出'),
+              value: _startHidden,
+              onChanged: _busy ? null : _toggleStartHidden,
             ),
           if (HotkeyService.supported && _hotKey != null)
             ListTile(

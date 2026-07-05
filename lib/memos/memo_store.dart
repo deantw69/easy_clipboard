@@ -106,6 +106,11 @@ class MemoStore extends ChangeNotifier {
   /// 本地內容變動時的回呼(AppController 用來觸發即時同步推送)。
   VoidCallback? onLocalChange;
 
+  /// 載入時偵測到資料異常的提示訊息(供 UI 顯示一次性通知);正常為 null。
+  /// - memos.json 解析失敗、改用 .bak 還原成功 → 說明已從備份還原。
+  /// - 主檔與備份都無法解析 → 說明資料損毀、以空清單啟動(但不覆蓋損毀檔,保留人工搶救機會)。
+  final ValueNotifier<String?> loadWarning = ValueNotifier<String?>(null);
+
   /// 對 UI 顯示用:過濾墓碑,先依 sortKey 升冪(拖曳排序),
   /// sortKey 相同(如尚未排序過的舊資料)再依 updatedAt 新到舊。
   List<Memo> get visibleMemos {
@@ -148,29 +153,82 @@ class MemoStore extends ChangeNotifier {
   }
 
   /// 啟動時載入。
+  ///
+  /// 損毀防護:先讀主檔 `memos.json`,解析失敗(半寫/外部程式弄壞)再退回
+  /// 上一份 known-good 的 `memos.json.bak`;兩者皆無法解析才以空清單啟動,
+  /// 並保留損毀主檔(不覆寫)、透過 [loadWarning] 通知 UI,避免資料無聲消失。
   Future<void> load() async {
     await _migrateFromAppSupport();
-    try {
-      final f = await _file();
-      if (await f.exists()) {
-        final raw = await f.readAsString();
-        if (raw.trim().isNotEmpty) {
-          _memos
-            ..clear()
-            ..addAll(_decode(raw));
-          // 清掉過期墓碑,順手把縮小後的清單寫回。
-          if (_gcTombstones()) await _save();
-        }
-      }
-    } catch (_) {
-      // 讀取/解析失敗時以空清單啟動,不阻擋 App。
+    final f = await _file();
+    final fileExists = await f.exists();
+    if (await _tryLoadFrom(f)) {
+      // 主檔正常。
+    } else if (await _tryLoadFrom(File('${f.path}.bak'))) {
+      // 主檔壞了但備份還在:還原並立刻用備份內容重寫主檔(_save 會再滾出新 .bak)。
+      loadWarning.value = '備忘錄主檔損毀,已自動從備份還原。';
+      await _save();
+    } else if (fileExists) {
+      // 主檔存在但主檔與備份都無法解析:以空清單啟動,但不覆寫損毀主檔(保留搶救機會)。
+      _memos.clear();
+      loadWarning.value = '備忘錄資料損毀且無可用備份,已以空清單啟動;'
+          '原始檔案未被覆寫,可從其他裝置同步回或手動搶救。';
     }
+    // 清掉過期墓碑,順手把縮小後的清單寫回(僅在成功載入且有變動時)。
+    if (loadWarning.value == null && _gcTombstones()) await _save();
     notifyListeners();
   }
 
+  /// 嘗試從 [f] 載入並填入 `_memos`;成功(含合法空檔)回 true,不存在/解析失敗回 false。
+  /// 失敗時不動 `_memos`,交由呼叫端決定後續退路。
+  Future<bool> _tryLoadFrom(File f) async {
+    try {
+      if (!await f.exists()) return false;
+      final raw = await f.readAsString();
+      if (raw.trim().isEmpty) {
+        _memos.clear();
+        return true; // 合法的空清單。
+      }
+      final decoded = _decode(raw);
+      _memos
+        ..clear()
+        ..addAll(decoded);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 原子寫入:先寫 `.tmp`(flush 落地)→ 把現有主檔滾成 `.bak`(視為上次 known-good)
+  /// → 再把 `.tmp` 更名為主檔。任一步崩潰都不會留下半寫的 `memos.json`
+  /// (要嘛主檔完好、要嘛 .bak 完好、要嘛 .tmp 完好),載入端可逐級退回。
   Future<void> _save() async {
     try {
-      await (await _file()).writeAsString(exportJson());
+      final f = await _file();
+      final tmp = File('${f.path}.tmp');
+      await tmp.writeAsString(exportJson(), flush: true);
+      if (await f.exists()) {
+        final bak = File('${f.path}.bak');
+        try {
+          if (await bak.exists()) await bak.delete();
+        } catch (_) {}
+        // 主檔更名成 .bak;更名走掉後主檔位置已空,下一步 tmp 更名不會撞既有檔(Windows 相容)。
+        try {
+          await f.rename(bak.path);
+        } catch (_) {
+          try {
+            await f.copy(bak.path);
+          } catch (_) {}
+        }
+      }
+      try {
+        await tmp.rename(f.path);
+      } catch (_) {
+        // 更名失敗退回複製,並清掉殘留 tmp。
+        await tmp.copy(f.path);
+        try {
+          await tmp.delete();
+        } catch (_) {}
+      }
     } catch (_) {}
   }
 

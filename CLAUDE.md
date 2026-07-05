@@ -14,6 +14,7 @@
 ## 跨裝置備忘錄(Memo Sync)
 - 「備忘錄」分頁與剪貼簿同視窗,底部 `NavigationBar` 切換(`root_page.dart`,`home:` 指向 `RootPage`);切換 index 存 appSupport `last_tab`。
 - 資料層 `lib/memos/memo_store.dart`:`Memo`(id/text/todos/updatedAt/deleted/colorValue/sortKey)、`MemoTodo`、`MemoStore extends ChangeNotifier`,持久化 `memos.json`(無資料庫)。
+- **損毀防護與自動備份(T17)**:`_save()` 原子寫入——寫 `.tmp`(flush 落地)→ 現有主檔更名成 `.bak`(視為上次 known-good;更名走掉後主檔位置已空,`.tmp` 更名回主檔不會撞既有檔,Windows 相容)→ `.tmp` 更名為主檔。任一步崩潰都不會留半寫的 `memos.json`。`load()` 主檔解析失敗退回 `.bak`;主檔存在但兩者皆壞 → 空清單啟動但**不覆寫損毀主檔**(保留搶救),經 `MemoStore.loadWarning`(`ValueNotifier<String?>`)在 `RootPage` 跳一次性 SnackBar,不再靜默載入空清單。`mergeJson` 走同一個 `_save()`。
 - **桌面(macOS/Windows)存 `Downloads/SyncNest/`**(見「自訂儲存資料夾」),不放 appSupport——appSupport 是沙盒 Container 重裝會清;Downloads 靠 entitlement `files.downloads.read-write` 重裝保留。iOS 等仍存 appSupport(重裝必清,靠區網同步補回)。`load()` 開頭 `_migrateFromAppSupport()` 一次性搬舊檔。
 - 同步為**雙向合併**:Last-Write-Wins 比 `updatedAt`,刪除留 `deleted=true` 墓碑避免復活;`colorValue`(null=預設黃)、`sortKey` 也隨 LWW 同步。協定 HTTP `POST /memos/sync`(`lan_transport.dart`):送完整清單 JSON,接收端 `mergeJson` 後回傳自己清單,一次往返收斂。
 - **墓碑過期清理(T18)**:`MemoStore._gcTombstones()` 在 `load()` 與 `mergeJson()`(changed 時)清掉 `deleted=true` 且 `updatedAt` 超過 `_tombstoneTtlDays`(30 天)的墓碑,避免 memos.json 無限長大、同步整包越傳越慢。**取捨**:30 天遠大於裝置最長離線間隔——只要各裝置 30 天內同步過一次,墓碑早已生效,清掉不會復活;若某裝置離線超過 30 天才回來,其舊資料可能復活,屬刻意接受的罕見代價。GC 不呼 `onLocalChange`,load 縮檔後 `_save()`。
@@ -85,6 +86,7 @@
 
 ## 開機自啟動
 - 入口:AppBar 齒輪 → 設定「開機自動啟動」(僅 macOS/Windows)。`lib/core/autostart.dart`:macOS 走 `SyncNest/autostart` channel 呼 `SMAppService.mainApp`(需 13+);Windows 寫 `HKCU\...\CurrentVersion\Run`(`win32_registry`)。
+- **自啟時隱藏視窗背景執行(T15)**:設定頁在「開機自動啟動」開啟時多出子開關「自啟時隱藏視窗」,旗標存 appSupport `autostart_hidden`(依 pattern)。`main(List<String> args)` 由 `AutostartService.shouldStartHidden(args)` 判斷 → `DesktopTrayService.ensureInitialized(startHidden:)` 在 `waitUntilReadyToShow` callback 內只 `hide()`+`startTracking()`、不 `show()`,靠 tray 圖示/全域快捷鍵呼出。**Windows**:`setEnabled(true)` 依旗標把 Run 命令列寫成 `"exe" --hidden`(runner `main.cpp` 已把 argv 餵給 Dart `main`),只有登入啟動才會帶 `--hidden`,故手動開仍正常彈窗。**macOS**:SMAppService 登入啟動無法帶參數,改由 `AppDelegate.applicationDidFinishLaunching` 抓 open-application AppleEvent 的 `keyAELaunchedAsLogInItem` 快取成 `AppDelegate.launchedAtLogin`,channel `wasLaunchedAtLogin` 回傳;需「登入啟動 且 旗標開」才隱藏。依賴 T14(macOS 要先有 tray 才找得回)。
 
 ## 視窗位置/長寬記憶(桌面 macOS / Windows)
 - `lib/core/window_bounds_service.dart`(單例):啟動還原上次關閉前的視窗 frame、執行中去抖(500ms)存檔,存 appSupport `window_bounds.json`。

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'app_controller.dart';
+import 'core/autostart.dart';
 import 'core/deep_link.dart';
 import 'core/desktop_tray_service.dart';
 import 'core/hotkey_service.dart';
@@ -17,7 +18,7 @@ import 'memos/memo_store.dart';
 final navigatorKey = GlobalKey<NavigatorState>();
 final desktopTray = DesktopTrayService();
 
-void main() async {
+void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   // 手機(iOS/Android)鎖定直向;桌面不受影響。
   if (Platform.isIOS || Platform.isAndroid) {
@@ -26,7 +27,10 @@ void main() async {
       DeviceOrientation.portraitDown,
     ]);
   }
-  await DesktopTrayService.ensureInitialized();
+  // 開機自啟且使用者選了「自啟時隱藏」→ 啟動即收進系統匣、不彈主視窗。
+  final startHidden =
+      DesktopTrayService.isDesktop && await AutostartService.shouldStartHidden(args);
+  await DesktopTrayService.ensureInitialized(startHidden: startHidden);
   await StorageLocation.instance.load();
   final memoStore = MemoStore()..load();
   runApp(

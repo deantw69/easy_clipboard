@@ -22,9 +22,9 @@
 - [ ] T12 Live Activity 殭屍活動清理
 - [ ] T13 Share Extension 喚醒主 App 失敗回饋
 - [x] T14 macOS 縮到系統匣（tray）
-- [ ] T15 開機自啟時隱藏視窗背景執行
+- [x] T15 開機自啟時隱藏視窗背景執行
 - [ ] T16 Windows 背景到點替代提醒
-- [ ] T17 memos.json 損毀防護與自動備份
+- [x] T17 memos.json 損毀防護與自動備份
 - [x] T18 墓碑過期清理
 - [ ] T19 同步失敗使用者可見提示
 - [ ] T20 備忘錄手動匯出/匯入 UI

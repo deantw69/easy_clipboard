@@ -23,6 +23,8 @@ class MainFlutterWindow: NSWindow {
         } else {
           result(false)
         }
+      case "wasLaunchedAtLogin":
+        result(AppDelegate.launchedAtLogin)
       case "setEnabled":
         let enabled = (call.arguments as? Bool) ?? false
         if #available(macOS 13.0, *) {

@@ -22,6 +22,8 @@ import 'transport.dart';
 const _defaultPort = 53318;
 const _envelopeHeader = 'x-envelope';
 const _groupHeader = 'x-group-code';
+// 同步時雙方互帶當下 epoch 毫秒,用來偵測系統時鐘偏移(向後相容:舊版不帶即略過)。
+const _syncTimeHeader = 'x-sync-time';
 
 class LanTransport implements Transport {
   final int port;
@@ -35,6 +37,10 @@ class LanTransport implements Transport {
   ));
 
   Future<String> Function(String incomingJson)? _onMemoSync;
+  void Function(Duration offset)? _onClockSkew;
+
+  @override
+  set onClockSkew(void Function(Duration offset)? cb) => _onClockSkew = cb;
 
   @override
   Future<void> start(
@@ -61,7 +67,16 @@ class LanTransport implements Transport {
       final cb = _onMemoSync;
       if (cb == null) return Response(503, body: 'memo sync unavailable');
       final merged = await cb(await req.readAsString());
-      return Response.ok(merged, headers: {'content-type': 'application/json'});
+      // 接收端時鐘偏移偵測:比對對方送出時間與本機當下(含極小的單向延遲,可忽略)。
+      final ct = int.tryParse(req.headers[_syncTimeHeader] ?? '');
+      if (ct != null) {
+        _onClockSkew?.call(
+            Duration(milliseconds: ct - DateTime.now().millisecondsSinceEpoch));
+      }
+      return Response.ok(merged, headers: {
+        'content-type': 'application/json',
+        _syncTimeHeader: '${DateTime.now().millisecondsSinceEpoch}',
+      });
     }
     if (req.method == 'GET' && req.url.path == 'info') {
       final l = _local!;
@@ -225,17 +240,27 @@ class LanTransport implements Transport {
 
   @override
   Future<String> syncMemos(DeviceInfo target, String localJson) async {
+    final myTime = DateTime.now().millisecondsSinceEpoch;
     final res = await _dio.post(
       _url(target, 'memos/sync'),
       data: localJson,
       options: Options(
         contentType: 'application/json; charset=utf-8',
         responseType: ResponseType.plain,
-        headers: {_groupHeader: _local?.groupCode ?? ''},
+        headers: {
+          _groupHeader: _local?.groupCode ?? '',
+          _syncTimeHeader: '$myTime',
+        },
         sendTimeout: const Duration(seconds: 10),
         receiveTimeout: const Duration(seconds: 10),
       ),
     );
+    // 傳送端時鐘偏移偵測:用送出/收到的中點時間抵銷來回延遲後,比對對端時間。
+    final st = int.tryParse(res.headers.value(_syncTimeHeader) ?? '');
+    if (st != null && _onClockSkew != null) {
+      final mid = (myTime + DateTime.now().millisecondsSinceEpoch) ~/ 2;
+      _onClockSkew!(Duration(milliseconds: st - mid));
+    }
     return res.data as String;
   }
 

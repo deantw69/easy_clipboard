@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
@@ -143,20 +145,130 @@ class _MemosPageState extends State<MemosPage> {
     setState(() => _busy = true);
     try {
       await c.updateGroupCode(result);
+      if (mounted && c.memoSyncFailing) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('群組碼已更新,但目前無法與其他裝置同步')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
+  /// 匯出全部備忘錄為 JSON 檔(手動備份)。桌面選存檔位置後自行寫入;
+  /// 行動裝置透過 file_picker 直接帶 bytes 存檔。
+  Future<void> _exportMemos() async {
+    final store = context.read<MemoStore>();
+    final messenger = ScaffoldMessenger.of(context);
+    final jsonStr = store.exportJson();
+    final bytes = Uint8List.fromList(utf8.encode(jsonStr));
+    final now = DateTime.now();
+    final stamp = '${now.year}${_two(now.month)}${_two(now.day)}'
+        '_${_two(now.hour)}${_two(now.minute)}';
+    try {
+      final path = await FilePicker.saveFile(
+        dialogTitle: '匯出備忘錄',
+        fileName: 'syncnest_memos_$stamp.json',
+        // 行動裝置需帶 bytes 才會實際寫檔;桌面回傳路徑後由我們自行寫入。
+        bytes: _isDesktopPlatform ? null : bytes,
+      );
+      if (path == null) return; // 使用者取消。
+      if (_isDesktopPlatform) await File(path).writeAsString(jsonStr);
+      messenger.showSnackBar(const SnackBar(content: Text('已匯出備忘錄')));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('匯出失敗:$e')));
+    }
+  }
+
+  /// 匯入 JSON 備份:走 LWW 合併(不覆蓋較新的本機資料),合併後自動推送同步。
+  Future<void> _importMemos() async {
+    final store = context.read<MemoStore>();
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final result = await FilePicker.pickFiles(
+        dialogTitle: '匯入備忘錄',
+        type: FileType.custom,
+        allowedExtensions: const ['json'],
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty) return; // 取消。
+      final f = result.files.single;
+      final content = f.bytes != null
+          ? utf8.decode(f.bytes!)
+          : await File(f.path!).readAsString();
+      final n = store.importJson(content);
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(
+        content: Text(n < 0
+            ? '匯入失敗:檔案格式不正確'
+            : n == 0
+                ? '匯入完成,沒有需要更新的備忘錄'
+                : '已匯入/更新 $n 則備忘錄'),
+      ));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('匯入失敗:$e')));
+    }
+  }
+
+  static String _two(int n) => n.toString().padLeft(2, '0');
+
+  /// 同步警告(失敗/時鐘偏移)的說明對話框。
+  Future<void> _showSyncWarning(AppController app) async {
+    final buf = StringBuffer();
+    if (app.memoSyncFailing) {
+      buf.writeln('目前無法與其他裝置同步備忘錄。');
+      buf.writeln('上次成功同步:${_fmtAgo(app.lastMemoSyncAt)}。');
+      buf.writeln('請確認其他裝置已開啟、且與本機在同一區網。');
+    }
+    final skew = app.clockSkew;
+    if (skew != null) {
+      if (buf.isNotEmpty) buf.writeln();
+      buf.writeln('偵測到與其他裝置的系統時鐘相差約 ${skew.inMinutes.abs()} 分鐘。');
+      buf.writeln('時鐘偏差可能導致同步時,較新的編輯被較舊的資料覆蓋。');
+      buf.writeln('建議校正本機或對方裝置的系統時間(開啟自動對時)。');
+    }
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('同步狀態'),
+        content: Text(buf.toString().trimRight()),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('知道了'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _fmtAgo(DateTime? t) {
+    if (t == null) return '尚無成功紀錄';
+    final d = DateTime.now().difference(t);
+    if (d.inSeconds < 60) return '剛剛';
+    if (d.inMinutes < 60) return '${d.inMinutes} 分鐘前';
+    if (d.inHours < 24) return '${d.inHours} 小時前';
+    return '${d.inDays} 天前';
+  }
+
   @override
   Widget build(BuildContext context) {
     final store = context.watch<MemoStore>();
+    final app = context.watch<AppController>();
     final memos = store.visibleMemos;
+    final showSyncWarning = app.memoSyncFailing || app.clockSkew != null;
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
         title: const Text('備忘錄'),
         actions: [
+          if (showSyncWarning)
+            IconButton(
+              icon: const Icon(Icons.sync_problem, color: Colors.amber),
+              tooltip: app.clockSkew != null ? '裝置時鐘偏移' : '同步異常',
+              onPressed: () => _showSyncWarning(app),
+            ),
           IconButton(
             icon: const Icon(Icons.add),
             tooltip: '新增備忘錄',
@@ -169,6 +281,8 @@ class _MemosPageState extends State<MemosPage> {
             onSelected: (value) {
               if (value == 'reset') _resetAndResync();
               if (value == 'group') _changeGroupCode();
+              if (value == 'export') _exportMemos();
+              if (value == 'import') _importMemos();
             },
             itemBuilder: (_) => [
               const PopupMenuItem<String>(
@@ -177,6 +291,22 @@ class _MemosPageState extends State<MemosPage> {
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(Icons.group_work_outlined),
                   title: Text('同步群組碼'),
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'export',
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.upload_file),
+                  title: Text('匯出備忘錄'),
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'import',
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.download),
+                  title: Text('匯入備忘錄'),
                 ),
               ),
               const PopupMenuItem<String>(

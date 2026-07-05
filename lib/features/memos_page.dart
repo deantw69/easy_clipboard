@@ -43,6 +43,9 @@ const List<Color> kMemoColors = [
   Color(0xFFE6D9FF), // 紫
 ];
 
+/// 與 kMemoColors 對應的顏色名稱(無障礙 Semantics 用)。
+const List<String> kMemoColorNames = ['黃', '粉紅', '藍', '綠', '橘', '紫'];
+
 Color _memoColorOf(Memo memo) =>
     memo.colorValue != null ? Color(memo.colorValue!) : _defaultMemoColor;
 
@@ -112,10 +115,10 @@ class _MemosPageState extends State<MemosPage> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
+            Text(
               '只有填相同群組碼的裝置才會自動同步備忘錄。\n'
               '留空 = 與所有同網裝置同步(預設)。',
-              style: TextStyle(fontSize: 12),
+              style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 12),
             TextField(
@@ -526,18 +529,23 @@ class _MemoCardState extends State<_MemoCard> {
                             child: Row(
                               children: [
                                 // 只有 checkbox 可點選勾選。
-                                InkWell(
-                                  borderRadius: BorderRadius.circular(4),
-                                  onTap: () =>
-                                      store.toggleTodo(memo.id, todo.id),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(2),
-                                    child: Icon(
-                                      todo.done
-                                          ? Icons.check_box
-                                          : Icons.check_box_outline_blank,
-                                      size: 20,
-                                      color: Colors.black54,
+                                Semantics(
+                                  checked: todo.done,
+                                  label:
+                                      todo.done ? '取消標記完成' : '標記完成',
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(4),
+                                    onTap: () =>
+                                        store.toggleTodo(memo.id, todo.id),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(2),
+                                      child: Icon(
+                                        todo.done
+                                            ? Icons.check_box
+                                            : Icons.check_box_outline_blank,
+                                        size: 20,
+                                        color: Colors.black54,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -860,9 +868,10 @@ class _MemoEditorState extends State<_MemoEditor> {
                 Wrap(
                   spacing: 10,
                   children: [
-                    for (final c in kMemoColors)
+                    for (final (i, c) in kMemoColors.indexed)
                       _ColorSwatch(
                         color: c,
+                        label: kMemoColorNames[i],
                         selected:
                             (_colorValue ?? _defaultMemoColor.toARGB32()) ==
                             c.toARGB32(),
@@ -923,10 +932,10 @@ class _MemoEditorState extends State<_MemoEditor> {
                               : '已刪除「${_removedTodo!.text.trim()}」',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.black45,
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color:
+                                    Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
                         ),
                       ),
                       TextButton(
@@ -962,19 +971,25 @@ class _MemoEditorState extends State<_MemoEditor> {
 /// 可點選的圓形色票,選中時顯示外框。
 class _ColorSwatch extends StatelessWidget {
   final Color color;
+  final String label;
   final bool selected;
   final VoidCallback onTap;
   const _ColorSwatch({
     required this.color,
+    required this.label,
     required this.selected,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
+    return Semantics(
+      label: '選擇顏色 $label',
+      button: true,
+      selected: selected,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
         width: 32,
         height: 32,
         decoration: BoxDecoration(
@@ -988,6 +1003,7 @@ class _ColorSwatch extends StatelessWidget {
         child: selected
             ? const Icon(Icons.check, size: 18, color: Colors.black54)
             : null,
+        ),
       ),
     );
   }

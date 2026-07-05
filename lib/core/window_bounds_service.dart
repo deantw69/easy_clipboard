@@ -21,7 +21,7 @@ class WindowBoundsService with WindowListener {
       !kIsWeb && (Platform.isMacOS || Platform.isWindows);
 
   /// 視窗最小可接受尺寸(避免存到被縮到看不見的 frame)。
-  static const Size _minSize = Size(360, 480);
+  static const Size _minSize = Size(480, 480);
 
   /// 允許視窗超出可見區域邊界的寬容量(px):讓貼邊/略微超出的擺放位置
   /// 也能被保留,而不會被硬拉回畫面內。

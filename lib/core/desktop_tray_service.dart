@@ -36,7 +36,9 @@ class DesktopTrayService with TrayListener, WindowListener {
     if (!isDesktop) return;
     await windowManager.ensureInitialized();
     const windowOptions = WindowOptions(
-      size: Size(420, 640),
+      size: Size(480, 640),
+      // 最小 480:低於此寬備忘錄卡片的收合鈕、待辦 Checkbox/複製鈕會擠壓重疊。
+      minimumSize: Size(480, 480),
       center: true,
       title: 'SyncNest',
       titleBarStyle: TitleBarStyle.normal,

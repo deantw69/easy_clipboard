@@ -133,8 +133,8 @@ Future<void> _showSendSheet(BuildContext context, DeviceInfo device) async {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
             child: Text('傳送到 ${device.name}',
-                style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.bold)),
+                style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold)),
           ),
           ListTile(
             leading: const Icon(Icons.photo_library),
@@ -323,7 +323,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
               title: const Text('儲存資料夾'),
               subtitle: Text(
                 _storagePath ?? '讀取中…',
-                style: const TextStyle(fontSize: 12),
+                style: Theme.of(context).textTheme.bodySmall,
               ),
               isThreeLine: _storagePath != null && _storagePath!.length > 30,
               trailing: TextButton(
@@ -673,11 +673,11 @@ Future<void> _addUrlsToMemo(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
             child: Text('加入到備忘錄…',
-                style:
-                    TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold)),
           ),
           ListTile(
             leading: const Icon(Icons.add),
@@ -763,8 +763,8 @@ Future<DeviceInfo?> showShareTargetPicker(
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
               child: Text('傳送${_sharedSummary(payloads)}到…',
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold)),
+                  style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold)),
             ),
             if (c.devices.isEmpty)
               const Padding(
@@ -973,13 +973,13 @@ class _DropZoneState extends State<_DropZone> {
 class _DesktopHint extends StatelessWidget {
   const _DesktopHint();
   @override
-  Widget build(BuildContext context) => const Padding(
-        padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
         child: Align(
           alignment: Alignment.centerLeft,
           child: Text(
             '提示:按 ⌘/Ctrl + V 直接傳出剪貼簿;或把圖片/影片拖曳到此視窗放開即傳出。',
-            style: TextStyle(fontSize: 12, color: Colors.grey),
+            style: Theme.of(context).textTheme.bodySmall,
           ),
         ),
       );

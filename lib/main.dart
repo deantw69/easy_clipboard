@@ -128,6 +128,14 @@ class SyncNestApp extends StatelessWidget {
         colorSchemeSeed: Colors.teal,
         useMaterial3: true,
       ),
+      // 深色模式:同 seed、跟隨系統。便利貼底色(kMemoColors)為固定淺色,
+      // 其上文字維持深色(見 memos_page.dart),不受此主題影響。
+      darkTheme: ThemeData(
+        colorSchemeSeed: Colors.teal,
+        brightness: Brightness.dark,
+        useMaterial3: true,
+      ),
+      themeMode: ThemeMode.system,
       home: const RootPage(),
     );
   }

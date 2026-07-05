@@ -23,7 +23,9 @@ class DesktopTrayService with TrayListener, WindowListener {
   static bool get isDesktop =>
       !kIsWeb && (Platform.isMacOS || Platform.isWindows);
 
-  static Future<void> ensureInitialized() async {
+  /// [startHidden] 為 true(開機自啟且選了「自啟時隱藏」)時不彈視窗,
+  /// 直接維持隱藏於系統匣,靠 tray 圖示/全域快捷鍵呼出。
+  static Future<void> ensureInitialized({bool startHidden = false}) async {
     if (!isDesktop) return;
     await windowManager.ensureInitialized();
     const windowOptions = WindowOptions(
@@ -35,8 +37,13 @@ class DesktopTrayService with TrayListener, WindowListener {
     await windowManager.waitUntilReadyToShow(windowOptions, () async {
       // 還原上次關閉前的視窗位置/長寬(沒有存檔則用上面預設),show 之前套用避免閃尺寸。
       await WindowBoundsService.instance.applySavedBounds();
-      await windowManager.show();
-      await windowManager.focus();
+      if (startHidden) {
+        // 維持隱藏(waitUntilReadyToShow 前視窗本就未顯示),仍開始追蹤 bounds。
+        await windowManager.hide();
+      } else {
+        await windowManager.show();
+        await windowManager.focus();
+      }
       WindowBoundsService.instance.startTracking();
     });
   }

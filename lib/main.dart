@@ -14,6 +14,7 @@ import 'alarm/menu_bar_service.dart';
 import 'alarm/notification_service.dart';
 import 'alarm/timer_repository.dart';
 import 'app_controller.dart';
+import 'core/autostart.dart';
 import 'core/deep_link.dart';
 import 'core/desktop_tray_service.dart';
 import 'core/hotkey_service.dart';
@@ -28,7 +29,7 @@ import 'memos/memo_store.dart';
 final navigatorKey = GlobalKey<NavigatorState>();
 final desktopTray = DesktopTrayService();
 
-void main() async {
+void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   // 手機(iOS/Android)鎖定直向;桌面不受影響。
   if (Platform.isIOS || Platform.isAndroid) {
@@ -37,7 +38,10 @@ void main() async {
       DeviceOrientation.portraitDown,
     ]);
   }
-  await DesktopTrayService.ensureInitialized();
+  // 開機自啟且使用者選了「自啟時隱藏」→ 啟動即收進系統匣、不彈主視窗。
+  final startHidden =
+      DesktopTrayService.isDesktop && await AutostartService.shouldStartHidden(args);
+  await DesktopTrayService.ensureInitialized(startHidden: startHidden);
   await StorageLocation.instance.load();
   // 群組代碼要先有 baseDir(桌面存備忘錄同資料夾),故在 StorageLocation 之後載入。
   await AlarmGroup.instance.load();

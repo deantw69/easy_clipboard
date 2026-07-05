@@ -149,9 +149,22 @@ Future<void> _showSendSheet(BuildContext context, DeviceInfo device) async {
           ListTile(
             leading: const Icon(Icons.content_paste),
             title: const Text('傳送剪貼簿'),
-            onTap: () {
+            onTap: () async {
               Navigator.pop(ctx);
-              c.sendClipboard(device);
+              try {
+                await c.sendClipboard(device);
+                if (context.mounted && c.status != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(c.status!)),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('傳送失敗:$e')),
+                  );
+                }
+              }
             },
           ),
         ],
@@ -177,6 +190,7 @@ class _SettingsDialog extends StatefulWidget {
 
 class _SettingsDialogState extends State<_SettingsDialog> {
   bool? _autostart;
+  bool _startHidden = false;
   bool _busy = false;
   HotKey? _hotKey;
   String? _storagePath;
@@ -186,6 +200,9 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     super.initState();
     AutostartService.isEnabled().then((v) {
       if (mounted) setState(() => _autostart = v);
+    });
+    AutostartService.isStartHiddenEnabled().then((v) {
+      if (mounted) setState(() => _startHidden = v);
     });
     if (HotkeyService.supported) {
       _hotKey = HotkeyService.instance.current;
@@ -239,6 +256,16 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     if (mounted) setState(() => _hotKey = HotkeyService.instance.current);
   }
 
+  Future<void> _toggleStartHidden(bool value) async {
+    setState(() => _busy = true);
+    try {
+      await AutostartService.setStartHidden(value);
+      if (mounted) setState(() => _startHidden = value);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _toggle(bool value) async {
     setState(() => _busy = true);
     try {
@@ -270,6 +297,15 @@ class _SettingsDialogState extends State<_SettingsDialog> {
               subtitle: const Text('登入系統時自動開啟 SyncNest'),
               value: _autostart ?? false,
               onChanged: (_autostart == null || _busy) ? null : _toggle,
+            ),
+          // 自啟時隱藏視窗:僅在開機自啟已開啟時顯示。
+          if (AutostartService.supported && (_autostart ?? false))
+            SwitchListTile(
+              contentPadding: const EdgeInsets.only(left: 16),
+              title: const Text('自啟時隱藏視窗'),
+              subtitle: const Text('登入啟動時只縮到系統匣背景執行,用快捷鍵/匣圖示呼出'),
+              value: _startHidden,
+              onChanged: _busy ? null : _toggleStartHidden,
             ),
           if (HotkeyService.supported && _hotKey != null)
             ListTile(
@@ -542,7 +578,7 @@ class _SendActions extends StatelessWidget {
         ListTile(
           leading: const Icon(Icons.content_paste),
           title: const Text('傳送剪貼簿'),
-          onTap: () => c.sendClipboard(device),
+          onTap: () => _sendClipboardWithFeedback(context, c, device),
         ),
       ],
     );
@@ -561,9 +597,9 @@ class _DesktopShortcuts extends StatelessWidget {
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.keyV, meta: true): () =>
-            c.sendClipboard(device),
+            _sendClipboardWithFeedback(context, c, device),
         const SingleActivator(LogicalKeyboardKey.keyV, control: true): () =>
-            c.sendClipboard(device),
+            _sendClipboardWithFeedback(context, c, device),
       },
       child: Focus(autofocus: true, child: child),
     );
@@ -986,6 +1022,7 @@ Future<void> _sendWithProgress(BuildContext context, AppController c,
       ),
     ),
   );
+  String? error;
   try {
     for (var i = 0; i < paths.length; i++) {
       index.value = i;
@@ -995,8 +1032,29 @@ Future<void> _sendWithProgress(BuildContext context, AppController c,
           batchCount: paths.length,
           onProgress: (v) => progress.value = v);
     }
+  } catch (e) {
+    error = '$e';
   } finally {
     if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
+  }
+  if (context.mounted && error != null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('傳送失敗:$error')),
+    );
+  }
+}
+
+/// 傳送剪貼簿並在失敗時以 SnackBar 回饋(成功訊息走 [AppController.status] 橫幅)。
+Future<void> _sendClipboardWithFeedback(
+    BuildContext context, AppController c, DeviceInfo device) async {
+  try {
+    await c.sendClipboard(device);
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('傳送失敗:$e')),
+      );
+    }
   }
 }
 

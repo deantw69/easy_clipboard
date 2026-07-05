@@ -3,9 +3,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
 
 import '../alarm/alarm_page.dart';
 import '../core/tab_router.dart';
+import '../memos/memo_store.dart';
 import 'home_page.dart';
 import 'memos_page.dart';
 
@@ -53,11 +55,26 @@ class _RootPageState extends State<RootPage> {
     }
     _loadLastTab();
     TabRouter.instance.requested.addListener(_onTabRequested);
+    // 備忘錄載入若偵測到損毀/從備份還原,跳一次性 SnackBar 提示(不再靜默)。
+    _memoWarning = context.read<MemoStore>().loadWarning;
+    _memoWarning!.addListener(_onMemoWarning);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onMemoWarning());
+  }
+
+  ValueNotifier<String?>? _memoWarning;
+
+  void _onMemoWarning() {
+    final msg = _memoWarning?.value;
+    if (msg == null || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), duration: const Duration(seconds: 8)),
+    );
   }
 
   @override
   void dispose() {
     TabRouter.instance.requested.removeListener(_onTabRequested);
+    _memoWarning?.removeListener(_onMemoWarning);
     super.dispose();
   }
 

@@ -1,5 +1,16 @@
 import '../core/models.dart';
 
+/// 傳送失敗時對外拋出的例外,[message] 已是可直接顯示的繁中訊息。
+///
+/// 傳輸層(如 [LanTransport])把底層 DioException/SocketException 分類轉成
+/// 使用者看得懂的說明,UI 只需 `catch` 後把 [message] 丟給 SnackBar。
+class TransferException implements Exception {
+  final String message;
+  TransferException(this.message);
+  @override
+  String toString() => message;
+}
+
 /// 傳輸層抽象。第一版為區網直傳([LanTransport]);
 /// 未來雲端中繼只需新增 cloud_relay_transport.dart 實作此介面。
 abstract class Transport {

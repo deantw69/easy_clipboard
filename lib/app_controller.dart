@@ -410,13 +410,25 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  Timer? _statusTimer;
+
+  /// 狀態訊息自動清除的延遲。這些訊息都是「某次操作的結果」,
+  /// 掛久了看不出屬於哪次操作,故一段時間後自動清空。
+  static const _statusClearDelay = Duration(seconds: 4);
+
   void _setStatus(String s) {
     status = s;
     notifyListeners();
+    _statusTimer?.cancel();
+    _statusTimer = Timer(_statusClearDelay, () {
+      status = null;
+      notifyListeners();
+    });
   }
 
   @override
   void dispose() {
+    _statusTimer?.cancel();
     _refreshTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _discovery.stop();

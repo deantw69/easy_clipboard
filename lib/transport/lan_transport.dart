@@ -145,20 +145,20 @@ class LanTransport implements Transport {
       mime: mime,
       batchCount: batchCount,
     );
-    await _dio.post(
-      _url(target, 'file'),
-      data: file.openRead(), // 串流上傳
-      options: Options(
-        headers: {
-          _envelopeHeader: _encodeEnvelope(env),
-          Headers.contentLengthHeader: size,
-        },
-        contentType: mime ?? 'application/octet-stream',
-      ),
-      onSendProgress: (sent, total) {
-        if (total > 0) onProgress?.call(sent / total);
-      },
-    );
+    await _guarded(() => _dio.post(
+          _url(target, 'file'),
+          data: file.openRead(), // 串流上傳
+          options: Options(
+            headers: {
+              _envelopeHeader: _encodeEnvelope(env),
+              Headers.contentLengthHeader: size,
+            },
+            contentType: mime ?? 'application/octet-stream',
+          ),
+          onSendProgress: (sent, total) {
+            if (total > 0) onProgress?.call(sent / total);
+          },
+        ));
   }
 
   @override
@@ -170,14 +170,14 @@ class LanTransport implements Transport {
       timestamp: DateTime.now(),
       mime: 'text/plain',
     );
-    await _dio.post(
-      _url(target, 'clipboard'),
-      data: text,
-      options: Options(
-        headers: {_envelopeHeader: _encodeEnvelope(env)},
-        contentType: 'text/plain; charset=utf-8',
-      ),
-    );
+    await _guarded(() => _dio.post(
+          _url(target, 'clipboard'),
+          data: text,
+          options: Options(
+            headers: {_envelopeHeader: _encodeEnvelope(env)},
+            contentType: 'text/plain; charset=utf-8',
+          ),
+        ));
   }
 
   @override
@@ -189,14 +189,14 @@ class LanTransport implements Transport {
       timestamp: DateTime.now(),
       mime: 'text/uri-list',
     );
-    await _dio.post(
-      _url(target, 'clipboard'),
-      data: url,
-      options: Options(
-        headers: {_envelopeHeader: _encodeEnvelope(env)},
-        contentType: 'text/plain; charset=utf-8',
-      ),
-    );
+    await _guarded(() => _dio.post(
+          _url(target, 'clipboard'),
+          data: url,
+          options: Options(
+            headers: {_envelopeHeader: _encodeEnvelope(env)},
+            contentType: 'text/plain; charset=utf-8',
+          ),
+        ));
   }
 
   @override
@@ -210,17 +210,17 @@ class LanTransport implements Transport {
       sizeBytes: pngBytes.length,
       mime: 'image/png',
     );
-    await _dio.post(
-      _url(target, 'clipboard'),
-      data: Stream.value(pngBytes),
-      options: Options(
-        headers: {
-          _envelopeHeader: _encodeEnvelope(env),
-          Headers.contentLengthHeader: pngBytes.length,
-        },
-        contentType: 'image/png',
-      ),
-    );
+    await _guarded(() => _dio.post(
+          _url(target, 'clipboard'),
+          data: Stream.value(pngBytes),
+          options: Options(
+            headers: {
+              _envelopeHeader: _encodeEnvelope(env),
+              Headers.contentLengthHeader: pngBytes.length,
+            },
+            contentType: 'image/png',
+          ),
+        ));
   }
 
   @override
@@ -249,6 +249,53 @@ class LanTransport implements Transport {
   }
 
   // ---- helpers ----
+
+  /// 包住 dio 送出動作,把底層 DioException/StateError 轉成 [TransferException]
+  /// (訊息為可直接顯示的繁中),讓所有傳送路徑的失敗回饋一致。
+  Future<T> _guarded<T>(Future<T> Function() run) async {
+    try {
+      return await run();
+    } on DioException catch (e) {
+      throw TransferException(_classifyDioError(e));
+    } on StateError catch (e) {
+      // _url 在 host 未解析時拋出,訊息本身已是繁中。
+      throw TransferException(e.message);
+    }
+  }
+
+  /// 把 DioException 分類成使用者看得懂的繁中訊息。
+  static String _classifyDioError(DioException e) {
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+        return '連線逾時,對方可能不在線或網路不穩';
+      case DioExceptionType.sendTimeout:
+        return '傳送逾時,請確認網路連線';
+      case DioExceptionType.receiveTimeout:
+        return '等待對方回應逾時,請重試';
+      case DioExceptionType.cancel:
+        return '已取消傳送';
+      case DioExceptionType.badResponse:
+        final code = e.response?.statusCode;
+        if (code == 403) return '對方拒絕連線(同步群組碼不符)';
+        return '對方回應錯誤(HTTP $code)';
+      case DioExceptionType.badCertificate:
+        return '憑證驗證失敗';
+      case DioExceptionType.connectionError:
+      case DioExceptionType.unknown:
+        final inner = e.error;
+        if (inner is SocketException) {
+          final os = inner.osError?.errorCode;
+          // 連線被拒:對方 App 未開或防火牆擋住(mac/Linux 61、Windows 10061)。
+          if (os == 61 || os == 10061) return '連線被拒,對方 App 可能未開啟';
+          // 主機不可達(mac 65/51、Windows 10065/10051)。
+          if (os == 65 || os == 51 || os == 10065 || os == 10051) {
+            return '找不到對方裝置,請確認雙方在同一區網';
+          }
+          return '網路連線失敗,請確認雙方在同一區網';
+        }
+        return '傳送失敗:${e.message ?? e.type.name}';
+    }
+  }
 
   String _url(DeviceInfo t, String path) {
     final host = t.host;

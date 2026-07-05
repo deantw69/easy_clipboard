@@ -149,9 +149,22 @@ Future<void> _showSendSheet(BuildContext context, DeviceInfo device) async {
           ListTile(
             leading: const Icon(Icons.content_paste),
             title: const Text('傳送剪貼簿'),
-            onTap: () {
+            onTap: () async {
               Navigator.pop(ctx);
-              c.sendClipboard(device);
+              try {
+                await c.sendClipboard(device);
+                if (context.mounted && c.status != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(c.status!)),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('傳送失敗:$e')),
+                  );
+                }
+              }
             },
           ),
         ],
@@ -542,7 +555,7 @@ class _SendActions extends StatelessWidget {
         ListTile(
           leading: const Icon(Icons.content_paste),
           title: const Text('傳送剪貼簿'),
-          onTap: () => c.sendClipboard(device),
+          onTap: () => _sendClipboardWithFeedback(context, c, device),
         ),
       ],
     );
@@ -561,9 +574,9 @@ class _DesktopShortcuts extends StatelessWidget {
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.keyV, meta: true): () =>
-            c.sendClipboard(device),
+            _sendClipboardWithFeedback(context, c, device),
         const SingleActivator(LogicalKeyboardKey.keyV, control: true): () =>
-            c.sendClipboard(device),
+            _sendClipboardWithFeedback(context, c, device),
       },
       child: Focus(autofocus: true, child: child),
     );
@@ -986,6 +999,7 @@ Future<void> _sendWithProgress(BuildContext context, AppController c,
       ),
     ),
   );
+  String? error;
   try {
     for (var i = 0; i < paths.length; i++) {
       index.value = i;
@@ -995,8 +1009,29 @@ Future<void> _sendWithProgress(BuildContext context, AppController c,
           batchCount: paths.length,
           onProgress: (v) => progress.value = v);
     }
+  } catch (e) {
+    error = '$e';
   } finally {
     if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
+  }
+  if (context.mounted && error != null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('傳送失敗:$error')),
+    );
+  }
+}
+
+/// 傳送剪貼簿並在失敗時以 SnackBar 回饋(成功訊息走 [AppController.status] 橫幅)。
+Future<void> _sendClipboardWithFeedback(
+    BuildContext context, AppController c, DeviceInfo device) async {
+  try {
+    await c.sendClipboard(device);
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('傳送失敗:$e')),
+      );
+    }
   }
 }
 

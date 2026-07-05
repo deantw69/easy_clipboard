@@ -4,6 +4,10 @@
 - **共通功能(備忘錄 memo、剪貼簿等)只在 `main` 改;鬧鐘專屬功能(alarm)只在 `feat/alarm-tab` 改。**
 - `feat/alarm-tab` 拿 `main` 更新:`git checkout feat/alarm-tab && git merge main`。
 
+## 傳送錯誤回饋(共通,剪貼簿/傳檔)
+- 傳輸層(`lan_transport.dart`)所有送出動作包在 `_guarded()`,把 `DioException`(經 `_classifyDioError`:逾時/連線被拒/主機不可達/403 群組碼不符/其他)與 `_url` 未解析的 `StateError` 轉成 **`TransferException`**(`transport.dart`,`message` 即可直接顯示的繁中)。**UI 只需 `catch` 後把 `'$e'` 丟給 SnackBar**。所有傳送路徑(手機/桌面剪貼簿、⌘/Ctrl+V、`_sendWithProgress`、分享批次)都已 try-catch→SnackBar。
+- **狀態橫幅自動清除**:`AppController._setStatus` 設訊息後起 4 秒 timer 自動 `status=null`(去抖、`dispose` 取消)——狀態訊息都是「某次操作結果」,掛久看不出屬於哪次;桌面 DevicePage 頂部橫幅顯示成功訊息,失敗走 SnackBar。
+
 ## 設定檔持久化 pattern(共通)
 - identity、last_target、last_tab、`hotkey.json`、`storage_dir` 等小設定一律以純文字或 JSON 存 **appSupport**(不寫資料庫/登錄),各裝置分開記、啟動還原。下面各功能只列檔名,不再重述此 pattern。
 

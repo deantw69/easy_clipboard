@@ -315,9 +315,9 @@ class _AlarmPageState extends State<AlarmPage> with WidgetsBindingObserver {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               '在你的每台裝置輸入「相同代碼」即可共用同一個倒數;不同代碼互不影響。',
-              style: TextStyle(fontSize: 13),
+              style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 16),
             TextField(
@@ -440,12 +440,19 @@ class _AlarmPageState extends State<AlarmPage> with WidgetsBindingObserver {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              _fmt(remaining),
-              style: const TextStyle(
-                  fontSize: 72,
-                  fontWeight: FontWeight.bold,
-                  fontFeatures: [FontFeature.tabularFigures()]),
+            // 固定 72 大字;放大系統字級時用 FittedBox 縮放避免窄螢幕橫向破版。
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  _fmt(remaining),
+                  style: const TextStyle(
+                      fontSize: 72,
+                      fontWeight: FontWeight.bold,
+                      fontFeatures: [FontFeature.tabularFigures()]),
+                ),
+              ),
             ),
             const SizedBox(height: 8),
             Text(

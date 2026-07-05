@@ -29,9 +29,9 @@
 - [x] T19 同步失敗使用者可見提示
 - [x] T20 備忘錄手動匯出/匯入 UI
 - [x] T21 LWW 時鐘偏移防護
-- [~] T22 深色模式主題（darkTheme＋硬編碼顏色清理）※ main 完成；alarm_page 待 feat/alarm-tab 補
+- [x] T22 深色模式主題（darkTheme＋硬編碼顏色清理）
 - [x] T23 無障礙 Semantics 標籤
-- [~] T24 字級跟隨系統縮放 ※ main 完成；alarm_page 待 feat/alarm-tab 補
+- [x] T24 字級跟隨系統縮放
 - [x] T25 桌面最小視窗寬度調整
 
 ### 未勾選（之後再說）

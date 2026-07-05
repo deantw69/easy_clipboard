@@ -49,5 +49,9 @@ abstract class Transport {
   /// 更新本機裝置資訊(例如群組碼變更後),讓接收端比對用最新值。
   void updateLocal(DeviceInfo local);
 
+  /// 設定時鐘偏移回呼:同步時比對雙方系統時間,偏移量(對端時間 - 本機時間)
+  /// 交給上層決定是否提示使用者校時(LWW 靠各機時鐘,偏差會誤覆蓋新資料)。
+  set onClockSkew(void Function(Duration offset)? cb);
+
   Future<void> stop();
 }

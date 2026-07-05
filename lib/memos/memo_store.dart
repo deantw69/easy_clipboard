@@ -243,6 +243,7 @@ class MemoStore extends ChangeNotifier {
 
   Memo add({String text = ''}) {
     final memo = Memo.create(text: text);
+    memo.updatedAt = _monotonicNow(); // 保證新建時間戳不小於本機已知最大值。
     // 置頂:取目前非刪除 memo 的最小 sortKey 再減 1。
     final minKey = _memos
         .where((m) => !m.deleted)
@@ -261,7 +262,7 @@ class MemoStore extends ChangeNotifier {
       final memo = _byId(orderedIds[i]);
       if (memo == null || memo.sortKey == i) continue;
       memo.sortKey = i;
-      memo.touch();
+      _touch(memo);
       changed = true;
     }
     if (changed) _commit();
@@ -272,7 +273,7 @@ class MemoStore extends ChangeNotifier {
     final memo = _byId(id);
     if (memo == null) return;
     mutate(memo);
-    memo.touch();
+    _touch(memo);
     _commit();
   }
 
@@ -282,7 +283,7 @@ class MemoStore extends ChangeNotifier {
     final idx = memo.todos.indexWhere((t) => t.id == todoId);
     if (idx < 0) return;
     memo.todos[idx].done = !memo.todos[idx].done;
-    memo.touch();
+    _touch(memo);
     _commit();
   }
 
@@ -290,7 +291,7 @@ class MemoStore extends ChangeNotifier {
     final memo = _byId(id);
     if (memo == null) return;
     memo.deleted = true;
-    memo.touch();
+    _touch(memo);
     _commit();
   }
 
@@ -300,7 +301,7 @@ class MemoStore extends ChangeNotifier {
     final memo = _byId(id);
     if (memo == null || !memo.deleted) return;
     memo.deleted = false;
-    memo.touch();
+    _touch(memo);
     _commit();
   }
 
@@ -319,6 +320,23 @@ class MemoStore extends ChangeNotifier {
     final idx = _memos.indexWhere((m) => m.id == id);
     return idx < 0 ? null : _memos[idx];
   }
+
+  /// 單調遞增的時間戳:取 `max(現在, 本機已知最大 updatedAt + 1)`。
+  ///
+  /// LWW 全靠各機 `DateTime.now()`,若本機時鐘曾被調快、之後又調回(或本來就比
+  /// 其他裝置快),直接用 now 可能產生「比自己既有資料還舊」的時間戳,導致新編輯
+  /// 被舊資料蓋掉。保證不小於自身最大值可避免本機自我倒退(不動協定、向後相容)。
+  int _monotonicNow() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    var maxSeen = 0;
+    for (final m in _memos) {
+      if (m.updatedAt > maxSeen) maxSeen = m.updatedAt;
+    }
+    return now > maxSeen ? now : maxSeen + 1;
+  }
+
+  /// 以單調遞增時間戳更新 [m](取代 `Memo.touch()`,確保本機時間戳不倒退)。
+  void _touch(Memo m) => m.updatedAt = _monotonicNow();
 
   /// 清空本機所有備忘錄(連墓碑一併移除),寫入空清單。
   ///
@@ -347,6 +365,34 @@ class MemoStore extends ChangeNotifier {
   ///
   /// 注意:合併進來的是「遠端的變更」,不應再回呼 [onLocalChange](否則
   /// 兩台會無限互推);此處只寫檔 + notifyListeners。
+  /// 手動匯入外部備份 JSON:與 [mergeJson] 同樣走 LWW 合併(不覆蓋較新的本機資料),
+  /// 但這是使用者主動的本地操作,合併後走 [_commit] 觸發 [onLocalChange] 推送到其他裝置。
+  /// 回傳新增/更新的筆數;JSON 格式錯誤回傳 -1。
+  int importJson(String incoming) {
+    try {
+      final remote = _decode(incoming);
+      final byId = {for (final m in _memos) m.id: m};
+      var applied = 0;
+      for (final r in remote) {
+        final local = byId[r.id];
+        if (local == null || r.updatedAt > local.updatedAt) {
+          byId[r.id] = r;
+          applied++;
+        }
+      }
+      if (applied > 0) {
+        _memos
+          ..clear()
+          ..addAll(byId.values);
+        _gcTombstones();
+        _commit();
+      }
+      return applied;
+    } catch (_) {
+      return -1;
+    }
+  }
+
   String mergeJson(String incoming) {
     try {
       final remote = _decode(incoming);

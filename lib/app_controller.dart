@@ -61,6 +61,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     );
     // transport 啟動時用的是占位資訊(空群組碼),補上正式群組碼供 server 比對。
     _transport!.updateLocal(_local!);
+    _transport!.onClockSkew = _onClockSkew;
 
     await _discovery.register(_local!);
     await _discovery.start((list) {
@@ -97,10 +98,30 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
 
   bool _syncing = false;
 
+  /// 時鐘偏移門檻:與對端系統時間相差超過此值時提示使用者校時
+  /// (LWW 全靠各機 `DateTime.now()`,時鐘偏差會讓新編輯被舊資料覆蓋)。
+  static const _clockSkewThreshold = Duration(minutes: 2);
+
+  DateTime? _lastMemoSyncAt;
+  bool _memoSyncFailing = false;
+  Duration? _clockSkew;
+
+  /// 上次成功同步備忘錄的時間(任一裝置成功即更新);從未成功為 null。
+  DateTime? get lastMemoSyncAt => _lastMemoSyncAt;
+
+  /// 最近一次同步:有可同步的裝置(同群組且可連線)卻全部失敗。
+  bool get memoSyncFailing => _memoSyncFailing;
+
+  /// 與對端系統時鐘的偏移(對端時間 - 本機時間);未超過門檻為 null。
+  Duration? get clockSkew => _clockSkew;
+
   /// 與目前可連線的所有裝置同步備忘錄(Last-Write-Wins)。
   ///
   /// 單一往返:送出本機完整清單,對方合併後回傳其清單,本機再合併。
   /// 加 [_syncing] 旗標去抖,避免多個觸發點短時間內重複跑;離線/逾時忽略。
+  ///
+  /// 同步結果供 UI 顯示:全部失敗時 [memoSyncFailing] 置真並記錄上次成功時間,
+  /// 讓使用者知道兩台其實早已沒在同步(過去這裡全吞例外)。
   Future<void> syncMemosWithAll() async {
     if (!ready || _syncing) return;
     _syncing = true;
@@ -109,17 +130,35 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       final targets = devices
           .where((d) => d.isReachable && d.groupCode == myGroup)
           .toList();
+      if (targets.isEmpty) return; // 沒有可同步的對象:不算失敗,維持現狀。
+      var anySuccess = false;
       for (final d in targets) {
         try {
           final remote = await _transport!.syncMemos(d, memos.exportJson());
           memos.mergeJson(remote);
+          anySuccess = true;
         } catch (_) {
           // 單台離線/逾時不影響其餘裝置。
         }
       }
+      if (anySuccess) _lastMemoSyncAt = DateTime.now();
+      final failing = !anySuccess;
+      if (failing != _memoSyncFailing) {
+        _memoSyncFailing = failing;
+        notifyListeners();
+      }
     } finally {
       _syncing = false;
     }
+  }
+
+  /// 傳輸層偵測到與對端時鐘偏移時的回呼:超過門檻才記錄並通知 UI,
+  /// 只在「有/無」跨越門檻時 notify,避免每次同步都重繪。
+  void _onClockSkew(Duration offset) {
+    final over = offset.abs() > _clockSkewThreshold ? offset : null;
+    final changed = (over == null) != (_clockSkew == null);
+    _clockSkew = over;
+    if (changed) notifyListeners();
   }
 
   /// 目前的同步群組碼(空字串=未設定,與所有同網裝置互通)。

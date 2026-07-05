@@ -15,6 +15,13 @@ import 'window_bounds_service.dart';
 class DesktopTrayService with TrayListener, WindowListener {
   bool _started = false;
 
+  /// 全域單例參照(main 建立的那個),供其他模組(如鬧鐘到點)叫回視窗。
+  static DesktopTrayService? instance;
+
+  DesktopTrayService() {
+    instance = this;
+  }
+
   VoidCallback? onWindowShown;
 
   static bool get isWindows => !kIsWeb && Platform.isWindows;
@@ -90,6 +97,13 @@ class DesktopTrayService with TrayListener, WindowListener {
     await windowManager.show();
     await windowManager.focus();
     onWindowShown?.call();
+  }
+
+  /// 到點提醒用:把主視窗叫回最前面(Windows 背景到點時無 OS 排程通知,
+  /// 靠此讓縮在系統匣/最小化的視窗自動彈回,配合響鈴與通知氣泡)。
+  Future<void> bringToForeground() async {
+    if (!isDesktop) return;
+    await showWindow();
   }
 
   /// 全域快捷鍵用:在前景時隱藏到系統匣,否則叫到最前面(一次呼出一次隱藏)。

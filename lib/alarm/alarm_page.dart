@@ -1,9 +1,13 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
+import '../core/desktop_tray_service.dart';
 import 'alarm_group.dart';
 import 'alarm_services.dart';
 import 'duration_picker.dart';
@@ -238,6 +242,11 @@ class _AlarmPageState extends State<AlarmPage> with WidgetsBindingObserver {
     await _services.repository.recordFired(_state.deadline ?? DateTime.now());
     await _services.notifications.cancelAll();
     await _services.notifications.showNow();
+    // Windows 等無背景排程的桌面平台:App 還在執行但視窗可能已縮到系統匣/最小化,
+    // 到點把視窗叫回最前面(通知氣泡 + 響鈴已於上下觸發),確保使用者看得到。
+    if (!_services.notifications.supportsScheduling) {
+      await DesktopTrayService.instance?.bringToForeground();
+    }
     // 動態島 / 鎖定畫面顯示「時間到」並維持(deadline 已過 → widget 顯示時間到,
     // staleDate=nil 不會自動消失);直到使用者按停止才 end 移除。
     await _syncLiveActivity(_state, DateTime.now());
@@ -346,6 +355,47 @@ class _AlarmPageState extends State<AlarmPage> with WidgetsBindingObserver {
     if (saved != null) await AlarmGroup.instance.setCode(saved);
   }
 
+  /// 啟動倒數。Windows 首次啟動時先跳一次性說明(需保持 App 執行才會提醒)。
+  Future<void> _handleStart() async {
+    await _maybeShowWindowsNotice();
+    await _services.repository.start();
+  }
+
+  /// Windows 專屬一次性說明:提醒使用者本平台不支援 App 關閉後背景排程通知,
+  /// 需保持執行(可縮到系統匣)才會到點提醒。旗標存 appSupport 只顯示一次。
+  Future<void> _maybeShowWindowsNotice() async {
+    if (!Platform.isWindows) return;
+    File? flag;
+    try {
+      final dir = await getApplicationSupportDirectory();
+      flag = File(p.join(dir.path, 'alarm_win_notice_shown'));
+      if (await flag.exists()) return;
+    } catch (_) {
+      return; // 讀取失敗就不強跳,避免每次都彈。
+    }
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Windows 提醒說明'),
+        content: const Text(
+          'Windows 無法在 App 關閉後於背景排程通知。\n\n'
+          '請讓 SyncNest 保持執行(可縮到系統匣),時間到才會跳通知、'
+          '響鈴並自動把視窗叫回前景。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('我知道了'),
+          ),
+        ],
+      ),
+    );
+    try {
+      await flag.writeAsString('1');
+    } catch (_) {}
+  }
+
   Future<void> _pickDuration() async {
     final picked = await DurationPickerSheet.show(
       context,
@@ -445,7 +495,7 @@ class _AlarmPageState extends State<AlarmPage> with WidgetsBindingObserver {
                   ),
                   const SizedBox(width: 16),
                   FilledButton.icon(
-                    onPressed: () => _services.repository.start(),
+                    onPressed: _handleStart,
                     icon: const Icon(Icons.play_arrow),
                     label: const Text('啟動'),
                   ),
@@ -487,7 +537,7 @@ class _AlarmPageState extends State<AlarmPage> with WidgetsBindingObserver {
               Padding(
                 padding: const EdgeInsets.only(top: 24),
                 child: Text(
-                  '此平台 App 關閉時不會背景通知(僅執行中通知)',
+                  '需保持 App 執行(可縮到系統匣)才會到點提醒;關閉後不會背景通知',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).hintColor,
                       ),

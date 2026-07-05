@@ -11,6 +11,23 @@ class TransferException implements Exception {
   String toString() => message;
 }
 
+/// 傳檔取消權杖。UI 建立後傳入 [Transport.sendFile],呼叫 [cancel] 即中止該次
+/// 傳送;傳輸層以 [onCancel] 綁定實際取消動作(如 dio 的 CancelToken),
+/// 讓 transport 抽象不必依賴具體 HTTP 套件。
+class TransferCancelToken {
+  bool _cancelled = false;
+  bool get isCancelled => _cancelled;
+
+  /// 由傳輸層設定的實際取消動作。
+  void Function()? onCancel;
+
+  void cancel() {
+    if (_cancelled) return;
+    _cancelled = true;
+    onCancel?.call();
+  }
+}
+
 /// 傳輸層抽象。第一版為區網直傳([LanTransport]);
 /// 未來雲端中繼只需新增 cloud_relay_transport.dart 實作此介面。
 abstract class Transport {
@@ -24,13 +41,15 @@ abstract class Transport {
     Future<String> Function(String incomingJson)? onMemoSync,
   });
 
-  /// 傳送檔案(圖片/影片/任意檔)。[onProgress] 回報 0.0~1.0。
+  /// 傳送檔案(圖片/影片/任意檔)。[onProgress] 回報 0.0~1.0;
+  /// [cancelToken] 供 UI 中途取消(取消會拋出 [TransferException]「已取消傳送」)。
   Future<void> sendFile(
     DeviceInfo target,
     String filePath, {
     String? mime,
     int? batchCount,
     void Function(double progress)? onProgress,
+    TransferCancelToken? cancelToken,
   });
 
   /// 傳送剪貼簿純文字。

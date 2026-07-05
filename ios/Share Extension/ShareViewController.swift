@@ -171,27 +171,62 @@ class ShareViewController: UIViewController {
     private func redirectToHostApp() {
         loadIds()
         guard let url = URL(string: "\(kSchemePrefix)-\(hostAppBundleIdentifier):share") else {
-            extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
+            completeRequest()
             return
         }
-        var responder = self as UIResponder?
         if #available(iOS 18.0, *) {
+            // 從 responder chain 找到 UIApplication,檢查 open 成敗;失敗才有回饋。
+            var responder = self as UIResponder?
+            var application: UIApplication?
             while responder != nil {
-                if let application = responder as? UIApplication {
-                    application.open(url, options: [:], completionHandler: nil)
+                if let app = responder as? UIApplication {
+                    application = app
+                    break
                 }
                 responder = responder?.next
             }
+            guard let application = application else {
+                showOpenFailedAlert()
+                return
+            }
+            application.open(url, options: [:]) { [weak self] success in
+                if success {
+                    self?.completeRequest()
+                } else {
+                    self?.showOpenFailedAlert()
+                }
+            }
         } else {
+            // iOS 18 以下走 selector,無成敗回呼;維持原行為直接結束。
             let selector = sel_registerName("openURL:")
+            var responder = self as UIResponder?
             while responder != nil {
                 if responder?.responds(to: selector) == true {
                     _ = responder?.perform(selector, with: url)
                 }
                 responder = responder?.next
             }
+            completeRequest()
         }
+    }
+
+    private func completeRequest() {
         extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
+    }
+
+    /// 喚醒主 App 失敗時的提示,關閉後才結束分享流程。
+    private func showOpenFailedAlert() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            let alert = UIAlertController(
+                title: "無法開啟 SyncNest",
+                message: "請確認 SyncNest 已安裝,或稍後再試。",
+                preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "關閉", style: .default) { [weak self] _ in
+                self?.completeRequest()
+            })
+            self.present(alert, animated: true)
+        }
     }
 
     private func dismissWithError() {

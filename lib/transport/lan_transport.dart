@@ -31,8 +31,12 @@ class LanTransport implements Transport {
 
   HttpServer? _server;
   DeviceInfo? _local;
+  // connectTimeout:連不上對方時盡快失敗(而非卡到預設 30 分)。
+  // sendTimeout:dio 以「距上次送出 bytes 的間隔」計時,故這是「傳輸停滯」的
+  // 偵測門檻——對方傳到一半離線時 30 秒無進展即中止,不再無限卡進度條。
   final _dio = Dio(BaseOptions(
-    sendTimeout: const Duration(minutes: 30),
+    connectTimeout: const Duration(seconds: 10),
+    sendTimeout: const Duration(seconds: 30),
     receiveTimeout: const Duration(minutes: 30),
   ));
 
@@ -102,13 +106,8 @@ class LanTransport implements Transport {
     final dir = await _saveDir();
     final fileName = env.fileName ?? '${env.id}.bin';
     final outPath = _uniquePath(dir, fileName);
-    final sink = File(outPath).openWrite();
-    try {
-      // 邊收邊寫,不把整個檔案讀進記憶體(大影片不會 OOM)。
-      await req.read().forEach(sink.add);
-      await sink.flush();
-    } finally {
-      await sink.close();
+    if (!await _writeBodyVerified(req, env, outPath)) {
+      return Response(400, body: 'incomplete transfer');
     }
     onReceived(ReceivedItem(envelope: env, savedPath: outPath));
     return Response.ok('ok');
@@ -126,16 +125,45 @@ class LanTransport implements Transport {
       // clipboardImage:存成 PNG 檔,交給上層寫入系統剪貼簿。
       final dir = await _saveDir();
       final outPath = _uniquePath(dir, env.fileName ?? '${env.id}.png');
-      final sink = File(outPath).openWrite();
-      try {
-        await req.read().forEach(sink.add);
-        await sink.flush();
-      } finally {
-        await sink.close();
+      if (!await _writeBodyVerified(req, env, outPath)) {
+        return Response(400, body: 'incomplete transfer');
       }
       onReceived(ReceivedItem(envelope: env, savedPath: outPath));
     }
     return Response.ok('ok');
+  }
+
+  /// 邊收邊寫入 [outPath],並在完成後校驗完整性。
+  ///
+  /// 回傳 true=完整落地;false=傳輸中斷或大小不符(已刪掉半寫檔,不入庫)。
+  /// 校驗依 envelope 的 `sizeBytes`——舊版不帶此欄位時退化為只擋「中途斷線」
+  /// (串流拋例外),不比對大小,維持雙端協定向後相容。
+  static Future<bool> _writeBodyVerified(
+      Request req, TransferEnvelope env, String outPath) async {
+    final sink = File(outPath).openWrite();
+    var written = 0;
+    var completed = false;
+    try {
+      // 邊收邊寫,不把整個檔案讀進記憶體(大影片不會 OOM)。
+      await for (final chunk in req.read()) {
+        written += chunk.length;
+        sink.add(chunk);
+      }
+      await sink.flush();
+      completed = true;
+    } catch (_) {
+      // 傳輸中斷:截斷檔不入庫。
+    } finally {
+      await sink.close();
+    }
+    final expected = env.sizeBytes;
+    final ok = completed && (expected == null || written == expected);
+    if (!ok) {
+      try {
+        await File(outPath).delete();
+      } catch (_) {}
+    }
+    return ok;
   }
 
   // ---- 傳送端 ----
@@ -147,9 +175,14 @@ class LanTransport implements Transport {
     String? mime,
     int? batchCount,
     void Function(double)? onProgress,
+    TransferCancelToken? cancelToken,
   }) async {
     final file = File(filePath);
     final size = await file.length();
+    // 把抽象取消權杖綁定到 dio 的 CancelToken;取消時 dio 拋 cancel 型例外,
+    // 經 _guarded → _classifyDioError 轉成「已取消傳送」。
+    final dioToken = CancelToken();
+    cancelToken?.onCancel = dioToken.cancel;
     final env = TransferEnvelope(
       id: const Uuid().v4(),
       kind: PayloadKind.file,
@@ -163,6 +196,7 @@ class LanTransport implements Transport {
     await _guarded(() => _dio.post(
           _url(target, 'file'),
           data: file.openRead(), // 串流上傳
+          cancelToken: dioToken,
           options: Options(
             headers: {
               _envelopeHeader: _encodeEnvelope(env),

@@ -15,6 +15,7 @@ import '../core/hotkey_service.dart';
 import '../core/models.dart';
 import '../core/storage_location.dart';
 import '../memos/memo_store.dart';
+import '../transport/transport.dart';
 
 bool get _isDesktop =>
     Platform.isMacOS || Platform.isWindows || Platform.isLinux;
@@ -1007,6 +1008,7 @@ Future<void> _sendWithProgress(BuildContext context, AppController c,
   if (paths.isEmpty) return;
   final progress = ValueNotifier<double>(0);
   final index = ValueNotifier<int>(0);
+  final token = TransferCancelToken();
   showDialog(
     context: context,
     barrierDismissible: false,
@@ -1020,6 +1022,12 @@ Future<void> _sendWithProgress(BuildContext context, AppController c,
         valueListenable: progress,
         builder: (_, v, _) => LinearProgressIndicator(value: v),
       ),
+      actions: [
+        TextButton(
+          onPressed: token.cancel,
+          child: const Text('取消'),
+        ),
+      ],
     ),
   );
   String? error;
@@ -1030,7 +1038,8 @@ Future<void> _sendWithProgress(BuildContext context, AppController c,
       await c.sendFile(device, paths[i],
           mime: _guessMime(paths[i]),
           batchCount: paths.length,
-          onProgress: (v) => progress.value = v);
+          onProgress: (v) => progress.value = v,
+          cancelToken: token);
     }
   } catch (e) {
     error = '$e';
@@ -1038,8 +1047,9 @@ Future<void> _sendWithProgress(BuildContext context, AppController c,
     if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
   }
   if (context.mounted && error != null) {
+    // 使用者主動取消不算失敗,以中性訊息回饋。
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('傳送失敗:$error')),
+      SnackBar(content: Text(token.isCancelled ? '已取消傳送' : '傳送失敗:$error')),
     );
   }
 }

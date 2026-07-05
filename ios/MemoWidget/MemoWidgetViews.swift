@@ -23,28 +23,29 @@ struct MemoDetailView: View {
       let ordered = memo.orderedTodos
       let shown = Array(ordered.prefix(maxTodos))
       let overflow = ordered.count - shown.count
+      let fg = Color.memoForeground(memo.color)
 
       VStack(alignment: .leading, spacing: 6) {
         Text(memo.title.isEmpty ? "(無標題備忘錄)" : memo.title)
           .font(.system(size: 14, weight: .semibold))
-          .foregroundColor(.black.opacity(memo.title.isEmpty ? 0.4 : 0.85))
+          .foregroundColor(fg.opacity(memo.title.isEmpty ? 0.4 : 0.85))
           .lineLimit(family == .systemSmall ? 1 : 2)
 
         if shown.isEmpty {
           Spacer(minLength: 0)
           Text("(沒有待辦項目)")
             .font(.system(size: 12))
-            .foregroundColor(.black.opacity(0.4))
+            .foregroundColor(fg.opacity(0.4))
           Spacer(minLength: 0)
         } else {
           VStack(alignment: .leading, spacing: 3) {
             ForEach(Array(shown.enumerated()), id: \.offset) { _, todo in
-              TodoRow(todo: todo)
+              TodoRow(todo: todo, fg: fg)
             }
             if overflow > 0 {
               Text("+\(overflow) 項")
                 .font(.system(size: 11))
-                .foregroundColor(.black.opacity(0.45))
+                .foregroundColor(fg.opacity(0.45))
                 .padding(.leading, 20)
                 .padding(.top, 1)
             }
@@ -82,16 +83,18 @@ private struct EmptyStateView: View {
 /// 單列待辦:勾選框 + 文字(已完成加刪除線並淡化)。
 private struct TodoRow: View {
   let todo: MemoTodoItem
+  /// 依底色亮度決定的前景基底色(黑或白)。
+  let fg: Color
 
   var body: some View {
     HStack(alignment: .top, spacing: 6) {
       Image(systemName: todo.done ? "checkmark.square.fill" : "square")
         .font(.system(size: 13))
-        .foregroundColor(.black.opacity(todo.done ? 0.4 : 0.65))
+        .foregroundColor(fg.opacity(todo.done ? 0.4 : 0.65))
       Text(todo.text.isEmpty ? "—" : todo.text)
         .font(.system(size: 13))
-        .strikethrough(todo.done, color: .black.opacity(0.4))
-        .foregroundColor(.black.opacity(todo.done ? 0.4 : 0.8))
+        .strikethrough(todo.done, color: fg.opacity(0.4))
+        .foregroundColor(fg.opacity(todo.done ? 0.4 : 0.8))
         .lineLimit(1)
       Spacer(minLength: 0)
     }

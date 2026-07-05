@@ -16,11 +16,11 @@
 - [x] T06 傳送錯誤分類與失敗回饋
 - [x] T07 狀態訊息自動清除
 - [x] T08 裝置清單在線狀態指示
-- [ ] T09 傳檔獨立逾時＋取消按鈕
-- [ ] T10 接收檔案完整性校驗
-- [ ] T11 MemoWidget 深色背景文字對比
+- [x] T09 傳檔獨立逾時＋取消按鈕
+- [x] T10 接收檔案完整性校驗
+- [x] T11 MemoWidget 深色背景文字對比
 - [x] T12 Live Activity 殭屍活動清理
-- [ ] T13 Share Extension 喚醒主 App 失敗回饋
+- [x] T13 Share Extension 喚醒主 App 失敗回饋
 - [x] T14 macOS 縮到系統匣（tray）
 - [x] T15 開機自啟時隱藏視窗背景執行
 - [x] T16 Windows 背景到點替代提醒

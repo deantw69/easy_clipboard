@@ -85,4 +85,16 @@ extension Color {
     let b = Double(v & 0xFF) / 255.0
     return Color(.sRGB, red: r, green: g, blue: b, opacity: a == 0 ? 1 : a)
   }
+
+  /// 依便利貼底色亮度選前景基底色:淺底用黑字、深底用白字,確保對比。
+  /// 各處文字仍以此基底 `.opacity(...)` 調層次(標題深、次要淺)。
+  static func memoForeground(_ argb: Int?) -> Color {
+    guard let v = argb else { return .black } // 預設黃底 → 黑字
+    let r = Double((v >> 16) & 0xFF) / 255.0
+    let g = Double((v >> 8) & 0xFF) / 255.0
+    let b = Double(v & 0xFF) / 255.0
+    // 感知亮度(sRGB 加權),偏亮視為淺色底。
+    let luminance = 0.299 * r + 0.587 * g + 0.114 * b
+    return luminance > 0.55 ? .black : .white
+  }
 }

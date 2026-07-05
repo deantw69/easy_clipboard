@@ -263,9 +263,13 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> copyReceivedImage(ReceivedItem item) async {
     final path = item.savedPath;
     if (path == null) return;
-    final bytes = await File(path).readAsBytes();
-    await clipboard.writeImagePng(bytes);
-    _setStatus('已複製圖片到剪貼簿');
+    try {
+      final bytes = await File(path).readAsBytes();
+      await clipboard.writeImagePng(bytes);
+      _setStatus('已複製圖片到剪貼簿');
+    } catch (_) {
+      _setStatus('複製圖片失敗:檔案可能已損毀或遺失');
+    }
   }
 
   /// 接收方(行動裝置):把收到的圖片存進系統相簿。
@@ -316,9 +320,15 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   // ---- 對 UI 的操作 ----
 
   Future<void> sendFile(DeviceInfo target, String path,
-      {String? mime, int? batchCount, void Function(double)? onProgress}) async {
+      {String? mime,
+      int? batchCount,
+      void Function(double)? onProgress,
+      TransferCancelToken? cancelToken}) async {
     await _transport!.sendFile(target, path,
-        mime: mime, batchCount: batchCount, onProgress: onProgress);
+        mime: mime,
+        batchCount: batchCount,
+        onProgress: onProgress,
+        cancelToken: cancelToken);
     _setStatus('已傳送檔案到 ${target.name}');
   }
 

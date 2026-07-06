@@ -2,6 +2,7 @@
 
 ## 分支工作流程(重要)
 - **共通功能(備忘錄 memo、剪貼簿等)只在 `main` 改;鬧鐘專屬功能(alarm)只在 `feat/alarm-tab` 改。**
+- **判定為共通功能時,即使目前身在 `feat/alarm-tab`,也必須先 `git checkout main` 改、commit,再 `git checkout feat/alarm-tab && git merge main` 併回;最後停在改動前所在的分支(原本在 alarm 就切回 alarm)。** 不可圖方便直接在 alarm 分支改共通功能。
 - `feat/alarm-tab` 拿 `main` 更新:`git checkout feat/alarm-tab && git merge main`。
 
 ## 傳送錯誤回饋(共通,剪貼簿/傳檔)

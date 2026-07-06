@@ -2,3 +2,10 @@
 windows/flutter/generated_plugin_registrant.cc -text
 windows/flutter/generated_plugins.cmake -text
 macos/Flutter/GeneratedPluginRegistrant.swift -text
+
+# Flutter 的 XcodeProjectObjectVersionMigration 每次 flutter build/run 都把
+# objectVersion 硬改成 54,但本專案有 PBXFileSystemSynchronizedRootGroup(Share
+# Extension)需要 70。clean filter 在 git 端一律正規化回 70,消除永久 diff churn。
+# 需在各機執行一次(見 CLAUDE.md):
+#   git config filter.pbxobjver.clean "sed -E 's/objectVersion = [0-9]+;/objectVersion = 70;/'"
+ios/Runner.xcodeproj/project.pbxproj filter=pbxobjver

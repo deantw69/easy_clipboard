@@ -104,6 +104,11 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
 
   DateTime? _lastMemoSyncAt;
   bool _memoSyncFailing = false;
+  int _memoSyncFailStreak = 0;
+
+  /// 連續整批失敗達此次數才判定 [memoSyncFailing](避免切前景/改群組碼瞬間/
+  /// 對端短暫忙碌造成的單次瞬時失敗就亮警示);任一次成功立即歸零清除。
+  static const _memoSyncFailThreshold = 3;
   Duration? _clockSkew;
 
   /// 上次成功同步備忘錄的時間(任一裝置成功即更新);從未成功為 null。
@@ -120,8 +125,9 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   /// 單一往返:送出本機完整清單,對方合併後回傳其清單,本機再合併。
   /// 加 [_syncing] 旗標去抖,避免多個觸發點短時間內重複跑;離線/逾時忽略。
   ///
-  /// 同步結果供 UI 顯示:全部失敗時 [memoSyncFailing] 置真並記錄上次成功時間,
-  /// 讓使用者知道兩台其實早已沒在同步(過去這裡全吞例外)。
+  /// 同步結果供 UI 顯示:連續整批失敗達 [_memoSyncFailThreshold] 次才把
+  /// [memoSyncFailing] 置真(任一次成功立即歸零),讓使用者知道兩台其實早已
+  /// 沒在同步,又不會被切前景/改群組碼瞬間的單次瞬時失敗誤報(過去這裡全吞例外)。
   Future<void> syncMemosWithAll() async {
     if (!ready || _syncing) return;
     _syncing = true;
@@ -141,8 +147,14 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
           // 單台離線/逾時不影響其餘裝置。
         }
       }
-      if (anySuccess) _lastMemoSyncAt = DateTime.now();
-      final failing = !anySuccess;
+      if (anySuccess) {
+        _lastMemoSyncAt = DateTime.now();
+        _memoSyncFailStreak = 0;
+      } else {
+        _memoSyncFailStreak++;
+      }
+      // 任一次成功即清除;需連續失敗達門檻才亮,濾掉瞬時抖動。
+      final failing = _memoSyncFailStreak >= _memoSyncFailThreshold;
       if (failing != _memoSyncFailing) {
         _memoSyncFailing = failing;
         notifyListeners();

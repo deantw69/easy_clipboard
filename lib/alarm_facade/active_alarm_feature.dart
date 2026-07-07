@@ -1,1 +1,1 @@
-export 'alarm_feature_stub.dart';
+export 'alarm_feature.dart';

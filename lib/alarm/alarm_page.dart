@@ -235,16 +235,23 @@ class _AlarmPageState extends State<AlarmPage> with WidgetsBindingObserver {
     return !fired.isBefore(deadline);
   }
 
-  /// 時間到:播放響鈴(保證出聲)+ 顯示通知。前景優先,取消 OS 排程避免重複。
+  /// 時間到:播放響鈴(保證出聲)+ 顯示通知。
+  ///
+  /// 通知依平台分流,避免重複:
+  ///  - **支援排程的平台(iOS / macOS / Android)**:時間到的通知由先前 [scheduleAt]
+  ///    排的 OS 排程通知負責(App 在背景/被關掉也會照響)。這裡**不再** `showNow`——
+  ///    背景已響過一次後,重開 App 時 Firestore 送回「running 且 deadline 已過」會
+  ///    走到這裡,再 `showNow` 就會彈出第二個一模一樣的通知(使用者回報的重複通知)。
+  ///    OS 排程通知已投遞,`cancelAll` 也無法取消它。
+  ///  - **無排程能力的平台(Windows)**:沒有 OS 排程通知,必須在此 `showNow` 補上。
   Future<void> _fireAlarm() async {
     _firedThisRound = true;
     // 記錄「上次時間到」的時刻(用該輪 deadline 為準,跨裝置一致;極短倒數無 deadline 時退用現在)。
     await _services.repository.recordFired(_state.deadline ?? DateTime.now());
-    await _services.notifications.cancelAll();
-    await _services.notifications.showNow();
-    // Windows 等無背景排程的桌面平台:App 還在執行但視窗可能已縮到系統匣/最小化,
-    // 到點把視窗叫回最前面(通知氣泡 + 響鈴已於上下觸發),確保使用者看得到。
     if (!_services.notifications.supportsScheduling) {
+      await _services.notifications.showNow();
+      // Windows 等無背景排程的桌面平台:App 還在執行但視窗可能已縮到系統匣/最小化,
+      // 到點把視窗叫回最前面(通知氣泡 + 響鈴已於上下觸發),確保使用者看得到。
       await DesktopTrayService.instance?.bringToForeground();
     }
     // 動態島 / 鎖定畫面顯示「時間到」並維持(deadline 已過 → widget 顯示時間到,

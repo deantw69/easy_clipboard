@@ -5,13 +5,14 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
-import '../alarm/alarm_page.dart';
+import '../alarm_facade/active_alarm_feature.dart';
 import '../core/tab_router.dart';
 import '../memos/memo_store.dart';
 import 'home_page.dart';
 import 'memos_page.dart';
 
-/// 底部分頁殼:剪貼簿/裝置、備忘錄、鬧鐘三個獨立分頁。
+/// 底部分頁殼:剪貼簿/裝置、備忘錄,(full 版)再加鬧鐘分頁。
+/// 分頁是否含鬧鐘由 [AlarmFeature] 決定(clean 版無此分頁)。
 /// 用 IndexedStack 保留各分頁狀態(切回來不重建)。
 /// 最後選的分頁會記在本機 appSupport 的 last_tab 檔(各裝置分開記),重開還原。
 class RootPage extends StatefulWidget {
@@ -27,9 +28,15 @@ class _RootPageState extends State<RootPage> {
   /// 已因深連結切過分頁後,就不讓 last_tab 還原覆蓋(避免搶回)。
   bool _routedByLink = false;
 
-  static const _pages = [HomePage(), MemosPage(), AlarmPage()];
+  final AlarmFeature _alarm = AlarmFeature();
 
-  /// [AppTab] → 本分支的分頁 index;沒有對應分頁回 null。
+  late final List<Widget> _pages = [
+    const HomePage(),
+    const MemosPage(),
+    if (_alarm.tabPage() != null) _alarm.tabPage()!,
+  ];
+
+  /// [AppTab] → 本建置的分頁 index;沒有對應分頁回 null。
   int? _indexForTab(AppTab tab) {
     switch (tab) {
       case AppTab.clipboard:
@@ -37,7 +44,8 @@ class _RootPageState extends State<RootPage> {
       case AppTab.memo:
         return 1;
       case AppTab.alarm:
-        return 2;
+        // clean 版無鬧鐘分頁,收到深連結即忽略。
+        return _alarm.hasAlarmTab ? 2 : null;
     }
   }
 
@@ -123,22 +131,18 @@ class _RootPageState extends State<RootPage> {
           setState(() => _index = i);
           _saveLastTab(i);
         },
-        destinations: const [
-          NavigationDestination(
+        destinations: [
+          const NavigationDestination(
             icon: Icon(Icons.devices_outlined),
             selectedIcon: Icon(Icons.devices),
             label: '剪貼簿',
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Icons.sticky_note_2_outlined),
             selectedIcon: Icon(Icons.sticky_note_2),
             label: '備忘錄',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.alarm_outlined),
-            selectedIcon: Icon(Icons.alarm),
-            label: '鬧鐘',
-          ),
+          if (_alarm.tabDestination() != null) _alarm.tabDestination()!,
         ],
       ),
     );

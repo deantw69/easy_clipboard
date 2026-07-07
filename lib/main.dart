@@ -1,18 +1,10 @@
-import 'dart:async';
 import 'dart:io';
 
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import 'alarm/alarm_group.dart';
-import 'alarm/alarm_services.dart';
-import 'alarm/alarm_sound_service.dart';
-import 'alarm/live_activity_service.dart';
-import 'alarm/menu_bar_service.dart';
-import 'alarm/notification_service.dart';
-import 'alarm/timer_repository.dart';
+import 'alarm_facade/active_alarm_feature.dart';
 import 'app_controller.dart';
 import 'core/autostart.dart';
 import 'core/deep_link.dart';
@@ -20,10 +12,8 @@ import 'core/desktop_tray_service.dart';
 import 'core/hotkey_service.dart';
 import 'core/share_handler.dart';
 import 'core/storage_location.dart';
-import 'core/tab_router.dart';
 import 'features/home_page.dart';
 import 'features/root_page.dart';
-import 'firebase_options.dart';
 import 'memos/memo_store.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
@@ -43,39 +33,19 @@ void main(List<String> args) async {
       DesktopTrayService.isDesktop && await AutostartService.shouldStartHidden(args);
   await DesktopTrayService.ensureInitialized(startHidden: startHidden);
   await StorageLocation.instance.load();
-  // 群組代碼要先有 baseDir(桌面存備忘錄同資料夾),故在 StorageLocation 之後載入。
-  await AlarmGroup.instance.load();
   final memoStore = MemoStore()..load();
 
-  // 鬧鐘(倒數計時)分頁:Firebase + 通知 + 選單列。
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  final notifications = NotificationService();
-  // 點擊鬧鐘通知(前景/背景/冷啟動)→ 切到鬧鐘分頁。
-  notifications.onTapAlarm = () => TabRouter.instance.go(AppTab.alarm);
-  await notifications.init();
-  unawaited(notifications.handleLaunchTap());
-  final menuBar = MenuBarService();
-  await menuBar.init();
-  final alarmServices = AlarmServices(
-    repository: TimerRepository(
-      deviceId: alarmDeviceLabel(),
-      timerId: AlarmGroup.instance.code,
-    ),
-    notifications: notifications,
-    alarm: AlarmSoundService(),
-    menuBar: menuBar,
-    liveActivity: LiveActivityService(),
-  );
-  // 通知權限放最後,不卡啟動流程。
-  unawaited(notifications.requestPermissions());
+  // 鬧鐘功能(Firebase + 通知 + 選單列 + Live Activity)收斂在 facade 後;
+  // clean 建置的 facade 為 no-op stub,完全不初始化、不引入 firebase(見 CLAUDE.md)。
+  // bootstrap 需在 StorageLocation.load() 之後(桌面 AlarmGroup 存同資料夾)。
+  final alarmFeature = AlarmFeature();
+  await alarmFeature.bootstrap();
 
   runApp(
-    MultiProvider(
+    alarmFeature.wrap(
+      MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: memoStore),
-        Provider<AlarmServices>.value(value: alarmServices),
         ChangeNotifierProvider<AppController>(create: (_) {
           final c = AppController(memos: memoStore);
           c.onImageReceived = (item) async {
@@ -106,6 +76,7 @@ void main(List<String> args) async {
         }),
       ],
       child: const SyncNestApp(),
+      ),
     ),
   );
 

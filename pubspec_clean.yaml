@@ -1,0 +1,75 @@
+name: syncnest
+description: "A new Flutter project."
+# The following line prevents the package from being accidentally published to
+# pub.dev using `flutter pub publish`. This is preferred for private packages.
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+# ⚠️ 這是「clean 版(無鬧鐘)」的 pubspec。平常開發/建置用根目錄 pubspec.yaml(= full)。
+# 建置 clean 版時由 tool/build_clean.sh 把本檔覆蓋成 pubspec.yaml,build 後還原。
+# 與 pubspec.yaml 的差異只在:移除 firebase / firestore / 本地通知 / 時區 / 響鈴等鬧鐘專屬依賴,
+# 以及 dependency_overrides 與 assets/sounds/。共通依賴(含 flutter_secure_storage,備忘錄群組碼用)全數保留。
+# 改共通依賴時兩檔都要同步改。
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  nsd: ^5.0.1
+  shelf: ^1.4.2
+  dio: ^5.9.2
+  web_socket_channel: ^3.0.3
+  super_clipboard: ^0.9.1
+  file_picker: ^11.0.2
+  image_picker: ^1.2.2
+  path_provider: ^2.1.6
+  path: ^1.9.1
+  uuid: ^4.5.3
+  provider: ^6.1.5+1
+  gal: ^2.3.0
+  desktop_drop: ^0.6.0
+  device_info_plus: ^11.2.0
+  win32_registry: ^2.0.0
+  # iOS 分享選單(Share Extension)接入,送出端用。
+  receive_sharing_intent: 1.8.1
+  # 接收端收到網址時開啟瀏覽器用。
+  url_launcher: ^6.3.1
+  # Windows 系統匣(minimize to tray)。
+  tray_manager: ^0.5.2
+  window_manager: ^0.5.1
+  # 視窗位置/長寬記憶:還原時把視窗夾限在可見螢幕內。
+  screen_retriever: ^0.2.1
+  # 全域快捷鍵呼出視窗(Windows)。
+  hotkey_manager: ^0.2.3
+  # 群組代碼持久化:iOS 存 Keychain(重裝保留)。備忘錄 sync_group 用(共通)。
+  flutter_secure_storage: ^9.2.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  image_path: "assets/icon/app_icon.png"
+  remove_alpha_ios: true
+  ios: true
+  macos:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+  windows:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+    icon_size: 48
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/icon/

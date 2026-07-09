@@ -61,7 +61,7 @@ struct MemoWidgetData: Codable {
 }
 
 enum MemoWidgetStore {
-  static let appGroupId = "group.com.philio.syncNest"
+  static let appGroupId = "group.dev.deantw69.syncNest"
   static let dataKey = "memo_widget_data"
 
   static func load() -> MemoWidgetData {

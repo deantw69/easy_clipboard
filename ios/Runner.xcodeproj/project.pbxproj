@@ -31,7 +31,6 @@
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
 		9B008E09794E942DE3EB5132 /* WidgetBridgeChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1E26DA420B0AF4C7B912D7 /* WidgetBridgeChannel.swift */; };
-		DE5710C0000000000000BF01 /* DeepLinkChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE5710C0000000000000FE02 /* DeepLinkChannel.swift */; };
 		9C276A6B0B426717211042EF /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = AD5ABF8E1D5E844497B863E0 /* GoogleService-Info.plist */; };
 		A1B2C3D40000000000000001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000002 /* PrivacyInfo.xcprivacy */; };
 		AD10B764E8F6F58BFF8DD21A /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9EA4B8707411374BDB2D5B4A /* Pods_Runner.framework */; };
@@ -40,6 +39,7 @@
 		C1F68F35F8C00CC32AAB626D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5AB0FFE02F14F483AFFBEA9E /* Foundation.framework */; };
 		D66EEF9E2FED118600AAC670 /* Share Extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D66EEF942FED118600AAC670 /* Share Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		D9436AE42A89744ABA700DBF /* CountdownLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52626D6503ACC134440215CD /* CountdownLiveActivity.swift */; };
+		DE5710C0000000000000BF01 /* DeepLinkChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE5710C0000000000000FE02 /* DeepLinkChannel.swift */; };
 		EC5470B9470B691ADF3271E5 /* CountdownWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 427185C9FA77AEAF6C166025 /* CountdownWidgetBundle.swift */; };
 /* End PBXBuildFile section */
 
@@ -130,7 +130,6 @@
 		823E1F30848E192B1BCE512A /* MemoWidgetViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MemoWidgetViews.swift; sourceTree = "<group>"; };
 		8DC0FC15594DCCE7FD277CAB /* CountdownAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CountdownAttributes.swift; sourceTree = "<group>"; };
 		8F1E26DA420B0AF4C7B912D7 /* WidgetBridgeChannel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetBridgeChannel.swift; sourceTree = "<group>"; };
-		DE5710C0000000000000FE02 /* DeepLinkChannel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeepLinkChannel.swift; sourceTree = "<group>"; };
 		905703619C3433799E91BE47 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = Flutter/Debug.xcconfig; sourceTree = "<group>"; };
 		9740EEB31CF90195004384FC /* Generated.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Generated.xcconfig; path = Flutter/Generated.xcconfig; sourceTree = "<group>"; };
@@ -151,6 +150,7 @@
 		D66EEF942FED118600AAC670 /* Share Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Share Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D66EEFA62FED11FF00AAC670 /* Runner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
 		D6FE6FA32FF3CD79004A449C /* CountdownWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CountdownWidgetExtension.entitlements; sourceTree = "<group>"; };
+		DE5710C0000000000000FE02 /* DeepLinkChannel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeepLinkChannel.swift; sourceTree = "<group>"; };
 		EC52BFF89AF32FDEEF103AC7 /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
 		F39D8999B9BD387307201A8D /* SelectMemoIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SelectMemoIntent.swift; sourceTree = "<group>"; };
 		FAA2F786C1546763E3E3E88D /* Pods-RunnerTests.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.profile.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.profile.xcconfig"; sourceTree = "<group>"; };
@@ -330,7 +330,6 @@
 				C55E4D0B9C61ED4422EB9F94 /* Info.plist */,
 				F39D8999B9BD387307201A8D /* SelectMemoIntent.swift */,
 			);
-			name = MemoWidget;
 			path = MemoWidget;
 			sourceTree = "<group>";
 		};
@@ -831,14 +830,14 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
-				DEVELOPMENT_TEAM = 6P5WSRHW66;
+				DEVELOPMENT_TEAM = QSR3425U8C;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.philio.syncNest;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.deantw69.syncNest;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
@@ -853,9 +852,10 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = QSR3425U8C;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.philio.syncNest.RunnerTests;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.deantw69.syncNest.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -871,9 +871,10 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = QSR3425U8C;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.philio.syncNest.RunnerTests;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.deantw69.syncNest.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Runner.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Runner";
@@ -887,9 +888,10 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = QSR3425U8C;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.philio.syncNest.RunnerTests;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.deantw69.syncNest.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Runner.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Runner";
@@ -903,12 +905,12 @@
 				CODE_SIGN_ENTITLEMENTS = CountdownWidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 6P5WSRHW66;
+				DEVELOPMENT_TEAM = QSR3425U8C;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = CountdownWidget/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.philio.syncNest.CountdownWidget;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.deantw69.syncNest.CountdownWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -925,12 +927,12 @@
 				CODE_SIGN_ENTITLEMENTS = CountdownWidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 6P5WSRHW66;
+				DEVELOPMENT_TEAM = QSR3425U8C;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = CountdownWidget/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.philio.syncNest.CountdownWidget;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.deantw69.syncNest.CountdownWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -1059,14 +1061,14 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
-				DEVELOPMENT_TEAM = 6P5WSRHW66;
+				DEVELOPMENT_TEAM = QSR3425U8C;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.philio.syncNest;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.deantw69.syncNest;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -1083,14 +1085,14 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
-				DEVELOPMENT_TEAM = 6P5WSRHW66;
+				DEVELOPMENT_TEAM = QSR3425U8C;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.philio.syncNest;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.deantw69.syncNest;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
@@ -1110,7 +1112,7 @@
 				CODE_SIGN_ENTITLEMENTS = MemoWidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 6P5WSRHW66;
+				DEVELOPMENT_TEAM = QSR3425U8C;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1126,7 +1128,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MARKETING_VERSION = 1.0;
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = com.philio.syncNest.MemoWidget;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.deantw69.syncNest.MemoWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -1151,7 +1153,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Share Extension/Share Extension.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 6P5WSRHW66;
+				DEVELOPMENT_TEAM = QSR3425U8C;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1168,7 +1170,7 @@
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.philio.syncNest.Share-Extension";
+				PRODUCT_BUNDLE_IDENTIFIER = "dev.deantw69.syncNest.Share-Extension";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -1195,7 +1197,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Share Extension/Share Extension.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 6P5WSRHW66;
+				DEVELOPMENT_TEAM = QSR3425U8C;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1211,7 +1213,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MARKETING_VERSION = 1.0;
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.philio.syncNest.Share-Extension";
+				PRODUCT_BUNDLE_IDENTIFIER = "dev.deantw69.syncNest.Share-Extension";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -1236,7 +1238,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Share Extension/Share Extension.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 6P5WSRHW66;
+				DEVELOPMENT_TEAM = QSR3425U8C;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1252,7 +1254,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MARKETING_VERSION = 1.0;
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.philio.syncNest.Share-Extension";
+				PRODUCT_BUNDLE_IDENTIFIER = "dev.deantw69.syncNest.Share-Extension";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -1271,12 +1273,12 @@
 				CODE_SIGN_ENTITLEMENTS = CountdownWidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 6P5WSRHW66;
+				DEVELOPMENT_TEAM = QSR3425U8C;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = CountdownWidget/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.philio.syncNest.CountdownWidget;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.deantw69.syncNest.CountdownWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -1297,7 +1299,7 @@
 				CODE_SIGN_ENTITLEMENTS = MemoWidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 6P5WSRHW66;
+				DEVELOPMENT_TEAM = QSR3425U8C;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1314,7 +1316,7 @@
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = com.philio.syncNest.MemoWidget;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.deantw69.syncNest.MemoWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -1340,7 +1342,7 @@
 				CODE_SIGN_ENTITLEMENTS = MemoWidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 6P5WSRHW66;
+				DEVELOPMENT_TEAM = QSR3425U8C;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1356,7 +1358,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MARKETING_VERSION = 1.0;
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = com.philio.syncNest.MemoWidget;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.deantw69.syncNest.MemoWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;

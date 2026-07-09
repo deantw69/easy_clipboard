@@ -8,7 +8,7 @@
 PRODUCT_NAME = syncnest
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.philio.syncNest
+PRODUCT_BUNDLE_IDENTIFIER = dev.deantw69.syncNest
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2026 com.philio. All rights reserved.

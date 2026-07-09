@@ -45,20 +45,20 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyAiYsnmcna2GrgnSk9RaGd53a6gxSbdaRU',
-    appId: '1:393105423189:ios:2b033e4c3ee7bab76f8ddc',
+    appId: '1:393105423189:ios:bb57ece74d8a765b6f8ddc',
     messagingSenderId: '393105423189',
     projectId: 'cross-platform-alarm-app',
     storageBucket: 'cross-platform-alarm-app.firebasestorage.app',
-    iosBundleId: 'com.philio.syncNest',
+    iosBundleId: 'dev.deantw69.syncNest',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyAiYsnmcna2GrgnSk9RaGd53a6gxSbdaRU',
-    appId: '1:393105423189:ios:2b033e4c3ee7bab76f8ddc',
+    appId: '1:393105423189:ios:bb57ece74d8a765b6f8ddc',
     messagingSenderId: '393105423189',
     projectId: 'cross-platform-alarm-app',
     storageBucket: 'cross-platform-alarm-app.firebasestorage.app',
-    iosBundleId: 'com.philio.syncNest',
+    iosBundleId: 'dev.deantw69.syncNest',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

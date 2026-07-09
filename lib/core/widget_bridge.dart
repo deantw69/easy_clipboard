@@ -8,7 +8,7 @@ import '../memos/memo_store.dart';
 /// 把備忘錄摘要推送到 iOS 主畫面 Widget(經 App Group 共享)。
 ///
 /// 原生端(WidgetBridgeChannel.swift)收到後寫入
-/// `UserDefaults(suiteName: "group.com.philio.syncNest")` 的 `memo_widget_data`,
+/// `UserDefaults(suiteName: "group.dev.deantw69.syncNest")` 的 `memo_widget_data`,
 /// 再呼叫 `WidgetCenter.reloadAllTimelines()` 讓 Widget 重新載入。
 ///
 /// 僅 iOS 有效;其他平台呼叫為 no-op。監聽 [MemoStore] 的任何變動

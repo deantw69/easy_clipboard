@@ -42,7 +42,7 @@
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
-			<string>com.philio.syncNest.deeplink</string>
+			<string>dev.deantw69.syncNest.deeplink</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>syncnest</string>

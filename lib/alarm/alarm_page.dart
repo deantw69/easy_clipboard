@@ -419,6 +419,16 @@ class _AlarmPageState extends State<AlarmPage> with WidgetsBindingObserver {
     final status = _state.status;
     final running = status == TimerStatus.running;
 
+    // 深色模式把主要按鈕(啟動/暫停/繼續)壓暗一點,避免預設亮青在深色 UI 上過刺眼;
+    // 連帶把文字改白確保壓暗底色後仍有對比。淺色模式維持預設(null)。
+    final cs = Theme.of(context).colorScheme;
+    final darkFilledStyle = Theme.of(context).brightness == Brightness.dark
+        ? FilledButton.styleFrom(
+            backgroundColor: Color.lerp(cs.primary, Colors.black, 0.28)!,
+            foregroundColor: Colors.white,
+          )
+        : null;
+
     final String statusText;
     switch (status) {
       case TimerStatus.running:
@@ -509,6 +519,7 @@ class _AlarmPageState extends State<AlarmPage> with WidgetsBindingObserver {
                   ),
                   const SizedBox(width: 16),
                   FilledButton.icon(
+                    style: darkFilledStyle,
                     onPressed: _handleStart,
                     icon: const Icon(Icons.play_arrow),
                     label: const Text('啟動'),
@@ -516,12 +527,14 @@ class _AlarmPageState extends State<AlarmPage> with WidgetsBindingObserver {
                 ] else ...[
                   if (running)
                     FilledButton.icon(
+                      style: darkFilledStyle,
                       onPressed: () => _services.repository.pause(),
                       icon: const Icon(Icons.pause),
                       label: const Text('暫停'),
                     )
                   else
                     FilledButton.icon(
+                      style: darkFilledStyle,
                       onPressed: () => _services.repository.resume(),
                       icon: const Icon(Icons.play_arrow),
                       label: const Text('繼續'),

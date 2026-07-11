@@ -49,6 +49,15 @@ const List<String> kMemoColorNames = ['黃', '粉紅', '藍', '綠', '橘', '紫
 Color _memoColorOf(Memo memo) =>
     memo.colorValue != null ? Color(memo.colorValue!) : _defaultMemoColor;
 
+/// 卡片實際底色:深色模式把固定淺色票壓暗,避免在深色 UI 上過亮刺眼,
+/// 仍保持足夠淺以襯托黑色文字/刪除線。淺色模式維持原色。
+Color _memoCardColor(Memo memo, Brightness brightness) {
+  final base = _memoColorOf(memo);
+  return brightness == Brightness.dark
+      ? Color.lerp(base, Colors.black, 0.32)!
+      : base;
+}
+
 /// 備忘錄分頁:便利貼風格的列表。點卡片編輯、勾選待辦、右上角新增、可拖曳排序。
 class MemosPage extends StatefulWidget {
   const MemosPage({super.key});
@@ -420,7 +429,7 @@ class _MemoCardState extends State<_MemoCard> {
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
         child: Card(
-          color: _memoColorOf(memo),
+          color: _memoCardColor(memo, Theme.of(context).brightness),
           margin: const EdgeInsets.symmetric(vertical: 6),
           child: InkWell(
             onTap: () => _openEditor(context, store, memo),
@@ -564,7 +573,8 @@ class _MemoCardState extends State<_MemoCard> {
                                                   : null),
                                         decorationColor: isUrl
                                             ? Colors.blue.shade700
-                                            : null,
+                                            : Colors.black,
+                                        decorationThickness: todo.done ? 2 : 1,
                                       );
                                       if (!isUrl) {
                                         return Text(

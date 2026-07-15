@@ -616,23 +616,13 @@ class _MemoCardState extends State<_MemoCard> {
                                 // 只有網址才顯示右側複製鈕。
                                 if (isUrl) ...[
                                   const SizedBox(width: 6),
-                                  SizedBox(
-                                    width: 24,
-                                    height: 24,
-                                    child: IconButton(
-                                      icon: const Icon(
-                                        Icons.copy,
-                                        size: 18,
-                                        color: Colors.black45,
-                                      ),
-                                      tooltip: '複製',
-                                      padding: EdgeInsets.zero,
-                                      visualDensity: VisualDensity.compact,
-                                      constraints: const BoxConstraints.tightFor(
-                                        width: 24,
-                                        height: 24,
-                                      ),
-                                      onPressed: () async {
+                                  // 用 InkWell 而非 IconButton:IconButton 會套用
+                                  // Material 最小點擊區塊(tap target)padding 撐高列高。
+                                  Tooltip(
+                                    message: '複製',
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(4),
+                                      onTap: () async {
                                         await Clipboard.setData(
                                           ClipboardData(text: todo.text),
                                         );
@@ -646,6 +636,14 @@ class _MemoCardState extends State<_MemoCard> {
                                           );
                                         }
                                       },
+                                      child: const Padding(
+                                        padding: EdgeInsets.all(2),
+                                        child: Icon(
+                                          Icons.copy,
+                                          size: 18,
+                                          color: Colors.black45,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(width: 6),

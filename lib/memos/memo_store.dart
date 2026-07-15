@@ -14,17 +14,27 @@ class MemoTodo {
   String text;
   bool done;
 
-  MemoTodo({required this.id, this.text = '', this.done = false});
+  /// 網址的顯示名稱(選填);僅在備忘錄為固定模式且 [text] 是網址時使用,
+  /// 有值時卡片顯示此名稱作為超連結文字,空/null 則顯示網址本身。
+  String? label;
+
+  MemoTodo({required this.id, this.text = '', this.done = false, this.label});
 
   factory MemoTodo.create({String text = ''}) =>
       MemoTodo(id: const Uuid().v4(), text: text);
 
-  Map<String, dynamic> toJson() => {'id': id, 'text': text, 'done': done};
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'text': text,
+    'done': done,
+    'label': label,
+  };
 
   factory MemoTodo.fromJson(Map<String, dynamic> j) => MemoTodo(
     id: j['id'] as String,
     text: (j['text'] as String?) ?? '',
     done: (j['done'] as bool?) ?? false,
+    label: j['label'] as String?,
   );
 }
 
@@ -45,6 +55,10 @@ class Memo {
   /// 列表排序鍵(升冪,小者在上);拖曳排序時改寫。預設 0。
   int sortKey;
 
+  /// 固定模式:待辦不顯示完成勾勾/刪除線(當純清單),
+  /// 且網址待辦可設 [MemoTodo.label] 顯示成具名超連結。預設 false。
+  bool fixed;
+
   Memo({
     required this.id,
     this.text = '',
@@ -53,6 +67,7 @@ class Memo {
     this.deleted = false,
     this.colorValue,
     this.sortKey = 0,
+    this.fixed = false,
   }) : todos = todos ?? [];
 
   factory Memo.create({String text = ''}) => Memo(
@@ -72,6 +87,7 @@ class Memo {
     'deleted': deleted,
     'colorValue': colorValue,
     'sortKey': sortKey,
+    'fixed': fixed,
   };
 
   factory Memo.fromJson(Map<String, dynamic> j) => Memo(
@@ -84,6 +100,7 @@ class Memo {
     deleted: (j['deleted'] as bool?) ?? false,
     colorValue: (j['colorValue'] as num?)?.toInt(),
     sortKey: (j['sortKey'] as num?)?.toInt() ?? 0,
+    fixed: (j['fixed'] as bool?) ?? false,
   );
 }
 

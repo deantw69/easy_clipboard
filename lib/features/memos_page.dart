@@ -533,31 +533,51 @@ class _MemoCardState extends State<_MemoCard> {
                       Builder(
                         builder: (context) {
                           final isUrl = _isUrl(todo.text);
+                          final fixed = memo.fixed;
+                          // 固定模式且網址有名稱時,顯示名稱作為超連結文字。
+                          final label = todo.label?.trim() ?? '';
+                          final display = fixed && isUrl && label.isNotEmpty
+                              ? label
+                              : todo.text;
+                          // 固定模式視為純清單:不理會 done(不畫刪除線)。
+                          final struck = !fixed && todo.done;
                           return Padding(
                             padding: const EdgeInsets.only(top: 4),
                             child: Row(
                               children: [
-                                // 只有 checkbox 可點選勾選。
-                                Semantics(
-                                  checked: todo.done,
-                                  label:
-                                      todo.done ? '取消標記完成' : '標記完成',
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(4),
-                                    onTap: () =>
-                                        store.toggleTodo(memo.id, todo.id),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(2),
-                                      child: Icon(
-                                        todo.done
-                                            ? Icons.check_box
-                                            : Icons.check_box_outline_blank,
-                                        size: 20,
+                                // 固定模式不顯示勾勾,改用項目符號;否則顯示可點選的 checkbox。
+                                if (fixed)
+                                  const Padding(
+                                    padding: EdgeInsets.fromLTRB(4, 0, 4, 0),
+                                    child: Text(
+                                      '•',
+                                      style: TextStyle(
+                                        fontSize: 18,
                                         color: Colors.black54,
                                       ),
                                     ),
+                                  )
+                                else
+                                  Semantics(
+                                    checked: todo.done,
+                                    label:
+                                        todo.done ? '取消標記完成' : '標記完成',
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(4),
+                                      onTap: () =>
+                                          store.toggleTodo(memo.id, todo.id),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(2),
+                                        child: Icon(
+                                          todo.done
+                                              ? Icons.check_box
+                                              : Icons.check_box_outline_blank,
+                                          size: 20,
+                                          color: Colors.black54,
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                ),
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Builder(
@@ -566,7 +586,7 @@ class _MemoCardState extends State<_MemoCard> {
                                         color: isUrl
                                             ? Colors.blue.shade700
                                             : Colors.black87,
-                                        decoration: todo.done
+                                        decoration: struck
                                             ? TextDecoration.lineThrough
                                             : (isUrl
                                                   ? TextDecoration.underline
@@ -574,17 +594,17 @@ class _MemoCardState extends State<_MemoCard> {
                                         decorationColor: isUrl
                                             ? Colors.blue.shade700
                                             : Colors.black,
-                                        decorationThickness: todo.done ? 2 : 1,
+                                        decorationThickness: struck ? 2 : 1,
                                       );
                                       if (!isUrl) {
                                         return Text(
-                                          todo.text,
+                                          display,
                                           style: baseStyle,
                                         );
                                       }
                                       return Text.rich(
                                         TextSpan(
-                                          text: todo.text,
+                                          text: display,
                                           style: baseStyle,
                                           recognizer: TapGestureRecognizer()
                                             ..onTap = () => _openUrl(todo.text),
@@ -596,30 +616,37 @@ class _MemoCardState extends State<_MemoCard> {
                                 // 只有網址才顯示右側複製鈕。
                                 if (isUrl) ...[
                                   const SizedBox(width: 6),
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.copy,
-                                      size: 18,
-                                      color: Colors.black45,
-                                    ),
-                                    tooltip: '複製',
-                                    padding: EdgeInsets.zero,
-                                    visualDensity: VisualDensity.compact,
-                                    constraints: const BoxConstraints.tightFor(
-                                      width: 24,
-                                    ),
-                                    onPressed: () async {
-                                      await Clipboard.setData(
-                                        ClipboardData(text: todo.text),
-                                      );
-                                      if (context.mounted) {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          const SnackBar(content: Text('已複製')),
+                                  SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: IconButton(
+                                      icon: const Icon(
+                                        Icons.copy,
+                                        size: 18,
+                                        color: Colors.black45,
+                                      ),
+                                      tooltip: '複製',
+                                      padding: EdgeInsets.zero,
+                                      visualDensity: VisualDensity.compact,
+                                      constraints: const BoxConstraints.tightFor(
+                                        width: 24,
+                                        height: 24,
+                                      ),
+                                      onPressed: () async {
+                                        await Clipboard.setData(
+                                          ClipboardData(text: todo.text),
                                         );
-                                      }
-                                    },
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('已複製'),
+                                            ),
+                                          );
+                                        }
+                                      },
+                                    ),
                                   ),
                                   const SizedBox(width: 6),
                                 ],
@@ -742,8 +769,11 @@ class _MemoEditorState extends State<_MemoEditor> {
   // 編輯時用暫存的待辦清單,按「儲存」才寫回。
   late final List<MemoTodo> _todos;
   final List<TextEditingController> _todoCtrls = [];
+  // 網址名稱(固定模式用),與 _todos 一一對應。
+  final List<TextEditingController> _labelCtrls = [];
   final List<FocusNode> _todoNodes = [];
   late int? _colorValue;
+  late bool _fixed;
 
   // 最後一筆被刪的待辦,供編輯器內「復原」(5 秒後失效)。
   MemoTodo? _removedTodo;
@@ -755,13 +785,16 @@ class _MemoEditorState extends State<_MemoEditor> {
     super.initState();
     _text = TextEditingController(text: widget.memo?.text ?? '');
     _colorValue = widget.memo?.colorValue;
+    _fixed = widget.memo?.fixed ?? false;
     _todos = widget.memo == null
         ? []
         : widget.memo!.todos
-              .map((t) => MemoTodo(id: t.id, text: t.text, done: t.done))
+              .map((t) =>
+                  MemoTodo(id: t.id, text: t.text, done: t.done, label: t.label))
               .toList();
     for (final t in _todos) {
       _todoCtrls.add(TextEditingController(text: t.text));
+      _labelCtrls.add(TextEditingController(text: t.label ?? ''));
       _todoNodes.add(FocusNode());
     }
   }
@@ -771,6 +804,9 @@ class _MemoEditorState extends State<_MemoEditor> {
     _undoTimer?.cancel();
     _text.dispose();
     for (final c in _todoCtrls) {
+      c.dispose();
+    }
+    for (final c in _labelCtrls) {
       c.dispose();
     }
     for (final n in _todoNodes) {
@@ -783,6 +819,7 @@ class _MemoEditorState extends State<_MemoEditor> {
     setState(() {
       _todos.add(MemoTodo.create());
       _todoCtrls.add(TextEditingController());
+      _labelCtrls.add(TextEditingController());
       _todoNodes.add(FocusNode());
     });
     // 等新列 build 完成後聚焦,配合 Enter 連續輸入。
@@ -803,10 +840,13 @@ class _MemoEditorState extends State<_MemoEditor> {
   /// 立即移除待辦,保留一筆可在編輯器內「復原」。
   void _removeTodo(int i) {
     _undoTimer?.cancel();
-    final removed = _todos[i]..text = _todoCtrls[i].text;
+    final removed = _todos[i]
+      ..text = _todoCtrls[i].text
+      ..label = _labelCtrls[i].text;
     setState(() {
       _todos.removeAt(i);
       _todoCtrls.removeAt(i).dispose();
+      _labelCtrls.removeAt(i).dispose();
       _todoNodes.removeAt(i).dispose();
       _removedTodo = removed;
       _removedIndex = i;
@@ -824,15 +864,18 @@ class _MemoEditorState extends State<_MemoEditor> {
       final i = _removedIndex.clamp(0, _todos.length);
       _todos.insert(i, t);
       _todoCtrls.insert(i, TextEditingController(text: t.text));
+      _labelCtrls.insert(i, TextEditingController(text: t.label ?? ''));
       _todoNodes.insert(i, FocusNode());
       _removedTodo = null;
     });
   }
 
   void _save() {
-    // 同步暫存待辦的文字。
+    // 同步暫存待辦的文字與網址名稱。
     for (var i = 0; i < _todos.length; i++) {
       _todos[i].text = _todoCtrls[i].text;
+      final label = _labelCtrls[i].text.trim();
+      _todos[i].label = label.isEmpty ? null : label;
     }
     final todos = _todos.where((t) => t.text.trim().isNotEmpty).toList();
     final text = _text.text;
@@ -845,12 +888,14 @@ class _MemoEditorState extends State<_MemoEditor> {
       widget.store.update(memo.id, (m) {
         m.todos = todos;
         m.colorValue = _colorValue;
+        m.fixed = _fixed;
       });
     } else {
       widget.store.update(widget.memo!.id, (m) {
         m.text = text;
         m.todos = todos;
         m.colorValue = _colorValue;
+        m.fixed = _fixed;
       });
     }
     Navigator.of(context).pop();
@@ -894,7 +939,17 @@ class _MemoEditorState extends State<_MemoEditor> {
                       ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 4),
+                // 固定模式:待辦當純清單顯示(無勾勾/刪除線),網址可設名稱。
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: const Text('固定模式'),
+                  subtitle: const Text('清單不顯示勾勾,網址可設名稱超連結'),
+                  value: _fixed,
+                  onChanged: (v) => setState(() => _fixed = v),
+                ),
+                const SizedBox(height: 8),
                 TextField(
                   controller: _text,
                   maxLines: null,
@@ -905,30 +960,53 @@ class _MemoEditorState extends State<_MemoEditor> {
                 ),
                 const SizedBox(height: 12),
                 for (var i = 0; i < _todos.length; i++)
-                  Row(
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextField(
-                          controller: _todoCtrls[i],
-                          focusNode: _todoNodes[i],
-                          textInputAction: TextInputAction.next,
-                          // 覆寫預設行為:Enter 跳下一列或在最後一列連續新增。
-                          onEditingComplete: () => _submitTodo(i),
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            hintText: '待辦項目',
+                      Row(
+                        children: [
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextField(
+                              controller: _todoCtrls[i],
+                              focusNode: _todoNodes[i],
+                              textInputAction: TextInputAction.next,
+                              // 覆寫預設行為:Enter 跳下一列或在最後一列連續新增。
+                              onEditingComplete: () => _submitTodo(i),
+                              // 固定模式下即時顯示/隱藏網址名稱欄。
+                              onChanged: _fixed ? (_) => setState(() {}) : null,
+                              decoration: InputDecoration(
+                                isDense: true,
+                                hintText: _fixed ? '項目 / 網址' : '待辦項目',
+                              ),
+                            ),
+                          ),
+                          // 排除 Tab 焦點,讓 Tab 只在待辦欄位間跳。
+                          ExcludeFocus(
+                            child: IconButton(
+                              icon: const Icon(Icons.close, size: 18),
+                              tooltip: '刪除待辦',
+                              onPressed: () => _removeTodo(i),
+                            ),
+                          ),
+                        ],
+                      ),
+                      // 固定模式且該列是網址時,顯示選填的名稱欄。
+                      if (_fixed && _isUrl(_todoCtrls[i].text))
+                        Padding(
+                          padding: const EdgeInsets.only(left: 12, right: 48),
+                          child: TextField(
+                            controller: _labelCtrls[i],
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              prefixIcon: Icon(Icons.link, size: 18),
+                              prefixIconConstraints:
+                                  BoxConstraints(minWidth: 28),
+                              hintText: '連結名稱(選填)',
+                            ),
                           ),
                         ),
-                      ),
-                      // 排除 Tab 焦點,讓 Tab 只在待辦欄位間跳。
-                      ExcludeFocus(
-                        child: IconButton(
-                          icon: const Icon(Icons.close, size: 18),
-                          tooltip: '刪除待辦',
-                          onPressed: () => _removeTodo(i),
-                        ),
-                      ),
                     ],
                   ),
                 if (_removedTodo != null)

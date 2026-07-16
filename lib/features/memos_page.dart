@@ -17,6 +17,21 @@ import '../memos/memo_store.dart';
 bool get _isDesktopPlatform =>
     Platform.isMacOS || Platform.isWindows || Platform.isLinux;
 
+/// 顯示 SnackBar 並保證自動消失。
+///
+/// macOS 桌面 `MediaQuery.accessibleNavigation` 常為 true,此時 Flutter 的
+/// ScaffoldMessenger **不會**啟動自動關閉計時器,導致 SnackBar 永久停留。
+/// 這裡自己起一個計時器,到期主動 `close()` 該筆 SnackBar(復原等按鈕
+/// 已在動作內處理,不影響其行為)。
+void _showAutoSnackBar(ScaffoldMessengerState messenger, SnackBar snackBar) {
+  final controller = messenger.showSnackBar(snackBar);
+  final duration = snackBar.duration;
+  Timer(duration, () {
+    // 若使用者已手動關閉/被新 SnackBar 取代,close() 為無害的 no-op。
+    controller.close();
+  });
+}
+
 /// 判斷待辦文字是否為網址(以 http(s):// 開頭)。
 bool _isUrl(String text) {
   final t = text.trim();
@@ -100,7 +115,8 @@ class _MemosPageState extends State<MemosPage> {
     try {
       final n = await context.read<AppController>().resetMemosAndResync();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        _showAutoSnackBar(
+          ScaffoldMessenger.of(context),
           SnackBar(
             content: Text(
               n > 0 ? '已重設,從 $n 台裝置重新同步' : '已重設,但目前找不到其他裝置可拉取(本機暫為空)',
@@ -158,7 +174,8 @@ class _MemosPageState extends State<MemosPage> {
     try {
       await c.updateGroupCode(result);
       if (mounted && c.memoSyncFailing) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        _showAutoSnackBar(
+          ScaffoldMessenger.of(context),
           const SnackBar(content: Text('群組碼已更新,但目前無法與其他裝置同步')),
         );
       }
@@ -186,9 +203,9 @@ class _MemosPageState extends State<MemosPage> {
       );
       if (path == null) return; // 使用者取消。
       if (_isDesktopPlatform) await File(path).writeAsString(jsonStr);
-      messenger.showSnackBar(const SnackBar(content: Text('已匯出備忘錄')));
+      _showAutoSnackBar(messenger, const SnackBar(content: Text('已匯出備忘錄')));
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('匯出失敗:$e')));
+      _showAutoSnackBar(messenger, SnackBar(content: Text('匯出失敗:$e')));
     }
   }
 
@@ -210,15 +227,18 @@ class _MemosPageState extends State<MemosPage> {
           : await File(f.path!).readAsString();
       final n = store.importJson(content);
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text(n < 0
-            ? '匯入失敗:檔案格式不正確'
-            : n == 0
-                ? '匯入完成,沒有需要更新的備忘錄'
-                : '已匯入/更新 $n 則備忘錄'),
-      ));
+      _showAutoSnackBar(
+        messenger,
+        SnackBar(
+          content: Text(n < 0
+              ? '匯入失敗:檔案格式不正確'
+              : n == 0
+                  ? '匯入完成,沒有需要更新的備忘錄'
+                  : '已匯入/更新 $n 則備忘錄'),
+        ),
+      );
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('匯入失敗:$e')));
+      _showAutoSnackBar(messenger, SnackBar(content: Text('匯入失敗:$e')));
     }
   }
 
@@ -402,18 +422,18 @@ class _MemoCardState extends State<_MemoCard> {
     final messenger = ScaffoldMessenger.of(context);
     final id = widget.memo.id;
     store.delete(id);
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: const Text('已刪除備忘錄'),
-          duration: const Duration(seconds: 5),
-          action: SnackBarAction(
-            label: '復原',
-            onPressed: () => store.restore(id),
-          ),
+    messenger.hideCurrentSnackBar();
+    _showAutoSnackBar(
+      messenger,
+      SnackBar(
+        content: const Text('已刪除備忘錄'),
+        duration: const Duration(seconds: 5),
+        action: SnackBarAction(
+          label: '復原',
+          onPressed: () => store.restore(id),
         ),
-      );
+      ),
+    );
   }
 
   @override
@@ -627,9 +647,8 @@ class _MemoCardState extends State<_MemoCard> {
                                           ClipboardData(text: todo.text),
                                         );
                                         if (context.mounted) {
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
+                                          _showAutoSnackBar(
+                                            ScaffoldMessenger.of(context),
                                             const SnackBar(
                                               content: Text('已複製'),
                                             ),

@@ -9,9 +9,11 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../alarm_facade/active_alarm_feature.dart';
 import '../app_controller.dart';
 import '../core/autostart.dart';
 import '../core/hotkey_service.dart';
+import '../core/menu_bar_pref.dart';
 import '../core/models.dart';
 import '../core/storage_location.dart';
 import '../memos/memo_store.dart';
@@ -192,6 +194,7 @@ class _SettingsDialog extends StatefulWidget {
 class _SettingsDialogState extends State<_SettingsDialog> {
   bool? _autostart;
   bool _startHidden = false;
+  bool _showMenuBarTimer = MenuBarPref.instance.showTimer;
   bool _busy = false;
   HotKey? _hotKey;
   String? _storagePath;
@@ -257,6 +260,11 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     if (mounted) setState(() => _hotKey = HotkeyService.instance.current);
   }
 
+  Future<void> _toggleMenuBarTimer(bool value) async {
+    await MenuBarPref.instance.setShowTimer(value);
+    if (mounted) setState(() => _showMenuBarTimer = value);
+  }
+
   Future<void> _toggleStartHidden(bool value) async {
     setState(() => _busy = true);
     try {
@@ -307,6 +315,15 @@ class _SettingsDialogState extends State<_SettingsDialog> {
               subtitle: const Text('登入啟動時只縮到系統匣背景執行,用快捷鍵/匣圖示呼出'),
               value: _startHidden,
               onChanged: _busy ? null : _toggleStartHidden,
+            ),
+          // 狀態列倒數顯示:僅 macOS 且含鬧鐘分頁(full 版)才有此功能。
+          if (MenuBarPref.supported && AlarmFeature().hasAlarmTab)
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('狀態列顯示倒數'),
+              subtitle: const Text('在 macOS 選單列的 SyncNest 圖示旁顯示鬧鐘倒數時間'),
+              value: _showMenuBarTimer,
+              onChanged: _busy ? null : _toggleMenuBarTimer,
             ),
           if (HotkeyService.supported && _hotKey != null)
             ListTile(

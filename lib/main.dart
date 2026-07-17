@@ -10,6 +10,7 @@ import 'core/autostart.dart';
 import 'core/deep_link.dart';
 import 'core/desktop_tray_service.dart';
 import 'core/hotkey_service.dart';
+import 'core/menu_bar_pref.dart';
 import 'core/share_handler.dart';
 import 'core/storage_location.dart';
 import 'features/home_page.dart';
@@ -33,6 +34,7 @@ void main(List<String> args) async {
       DesktopTrayService.isDesktop && await AutostartService.shouldStartHidden(args);
   await DesktopTrayService.ensureInitialized(startHidden: startHidden);
   await StorageLocation.instance.load();
+  await MenuBarPref.instance.load();
   final memoStore = MemoStore()..load();
 
   // 鬧鐘功能(Firebase + 通知 + 選單列 + Live Activity)收斂在 facade 後;

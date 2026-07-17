@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 import '../core/desktop_tray_service.dart';
+import '../core/menu_bar_pref.dart';
 import 'alarm_group.dart';
 import 'alarm_services.dart';
 import 'duration_picker.dart';
@@ -49,6 +50,7 @@ class _AlarmPageState extends State<AlarmPage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _subscribe();
     AlarmGroup.instance.addListener(_onGroupChanged);
+    MenuBarPref.instance.addListener(_updateMenuBar);
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _onTick());
   }
 
@@ -77,6 +79,7 @@ class _AlarmPageState extends State<AlarmPage> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     AlarmGroup.instance.removeListener(_onGroupChanged);
+    MenuBarPref.instance.removeListener(_updateMenuBar);
     _sub?.cancel();
     _ticker?.cancel();
     // alarm / menuBar 為 App 生命週期共用單例(Provider 持有),此處不 dispose。
@@ -208,7 +211,12 @@ class _AlarmPageState extends State<AlarmPage> with WidgetsBindingObserver {
   }
 
   /// 更新 macOS 選單列文字(其他平台為 no-op)。
+  /// 使用者關閉「狀態列顯示倒數」設定時清空文字、只留圖示。
   void _updateMenuBar() {
+    if (!MenuBarPref.instance.showTimer) {
+      _services.menuBar.setTitle('');
+      return;
+    }
     final remaining = _state.remaining(_now);
     String title;
     switch (_state.status) {

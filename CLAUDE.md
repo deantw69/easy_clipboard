@@ -1,5 +1,11 @@
 # SyncNest 專案慣例
 
+## 檢查更新(桌面,Tier A)
+- 入口:齒輪設定頁 `_SettingsDialog`(`home_page.dart`)「檢查更新」ListTile,gate `_isDesktop`。純檢查+跳轉——**不自動下載/覆蓋執行中 App**(Windows exe 檔案鎖、macOS 需簽章/notarization,故未做全自動,見對話評估)。
+- `lib/core/update_service.dart`(`UpdateService.check()`)用既有 `dio` 打 `api.github.com/repos/deantw69/easy_clipboard/releases/latest`(public repo 免認證,限速 60/hr),解析 `tag_name`/`html_url`/`body`,semver 比對(`_normalize` 去 v/pre-release/build 前後綴、`_compare` 逐段數字比)。有新版跳對話框顯示版號+release 說明+「開啟下載頁」(`launchUrl` 開 `html_url`),已最新跳 SnackBar。只用共通依賴,full/clean 皆適用。
+- **版本來源 `lib/core/app_version.dart` 的 `kAppVersion`**(目前 `1.0.4`):比對是拿本常數 vs 最新 release tag。**發 GitHub release 時務必連同 `pubspec.yaml` 的 `version` 一起 bump 這個常數**,否則比對失準(pubspec version 歷來未維護,故不靠它)。
+- **限制**:目前 release 只附 Windows zip,**macOS 無 asset**——mac 使用者開下載頁看不到 mac 檔;要 mac 能更新需先在 release 附 mac build。
+
 ## 單一 codebase / 雙建置(full/clean)(重要)
 - **已廢除雙分支(舊 main=乾淨版、feat/alarm-tab=含鬧鐘)。改為單一 codebase(main),用建置變體產出兩個產品:full(含鬧鐘)與 clean(無鬧鐘、且不打包 Firebase 系依賴)。** 所有功能(共通與鬧鐘)一律直接在 `main` 改,不再切分支、不再回推。
 - **鬧鐘功能收斂在 facade 後**:`lib/alarm_facade/` 是唯一 import `lib/alarm/*` 與 `firebase_*` 的邊界。

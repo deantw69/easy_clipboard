@@ -11,11 +11,13 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../alarm_facade/active_alarm_feature.dart';
 import '../app_controller.dart';
+import '../core/app_version.dart';
 import '../core/autostart.dart';
 import '../core/hotkey_service.dart';
 import '../core/menu_bar_pref.dart';
 import '../core/models.dart';
 import '../core/storage_location.dart';
+import '../core/update_service.dart';
 import '../memos/memo_store.dart';
 import '../transport/transport.dart';
 
@@ -250,6 +252,69 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     }
   }
 
+  /// 檢查 GitHub 是否有新版本;有的話跳對話框讓使用者開下載頁(Tier A)。
+  Future<void> _checkUpdate() async {
+    setState(() => _busy = true);
+    try {
+      final info = await UpdateService.check();
+      if (!mounted) return;
+      if (!info.hasUpdate) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('已是最新版本 (v$kAppVersion)')),
+        );
+        return;
+      }
+      final go = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: Text('發現新版本 ${info.latestTag}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('目前版本:v$kAppVersion'),
+              const SizedBox(height: 8),
+              if (info.body != null)
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 200),
+                  child: SingleChildScrollView(
+                    child: Text(
+                      info.body!,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('稍後'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('開啟下載頁'),
+            ),
+          ],
+        ),
+      );
+      if (go == true && info.htmlUrl.isNotEmpty) {
+        await launchUrl(
+          Uri.parse(info.htmlUrl),
+          mode: LaunchMode.externalApplication,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('檢查更新失敗:$e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _changeHotKey() async {
     final picked = await showDialog<HotKey>(
       context: context,
@@ -356,6 +421,16 @@ class _SettingsDialogState extends State<_SettingsDialog> {
               child: TextButton(
                 onPressed: _busy ? null : _resetStorageDir,
                 child: const Text('還原預設位置'),
+              ),
+            ),
+          if (_isDesktop)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('檢查更新'),
+              subtitle: Text('目前版本 v$kAppVersion'),
+              trailing: TextButton(
+                onPressed: _busy ? null : _checkUpdate,
+                child: const Text('檢查'),
               ),
             ),
         ],

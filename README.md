@@ -16,6 +16,7 @@
 - **桌面快捷操作**（macOS / Windows）：點裝置進傳送頁後按 **⌘/Ctrl + V** 直接傳出目前剪貼簿（圖片優先、否則文字）；或將圖片 / 影片**拖曳到視窗放開**即傳出。
 - **開機自動啟動**（macOS / Windows）：首頁右上齒輪 → 設定中可切換「開機自動啟動」，登入系統時自動開啟 App。macOS 透過 `SMAppService`、Windows 透過登錄機碼實作。開啟後可再切子選項「自啟時隱藏視窗」，登入啟動時只縮到系統匣背景執行，用全域快捷鍵／匣圖示呼出。
 - **可重選儲存資料夾**（macOS / Windows）：首頁右上齒輪 → 設定中可變更備忘錄與接收檔案的儲存資料夾（預設 `下載/SyncNest`）。變更時會把舊資料夾內容複製過去（不覆蓋同名檔），可「還原預設位置」。macOS 沙盒下以 security-scoped bookmark 持久化所選資料夾，重啟後仍可存取。
+- **檢查更新**（macOS / Windows）：首頁右上齒輪 → 設定中「檢查更新」，比對 GitHub 最新 release 版本，有新版跳出說明並可一鍵開啟 release 下載頁（Tier A：僅檢查與跳轉，不自動下載覆蓋）。版本號以 `lib/core/app_version.dart` 的 `kAppVersion` 為準，發版時需與 `pubspec.yaml` 同步 bump。
 - **單一程式碼庫**：macOS / iOS / Windows 共用同一份 Flutter 程式碼。
 - **可擴展架構**：傳輸層 / 發現層 / 資料模型以介面抽象，未來可擴展「跨網路雲端中繼」而不動既有結構。
 

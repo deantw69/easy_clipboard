@@ -10,7 +10,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # 以及 dependency_overrides 與 assets/sounds/。共通依賴(含 flutter_secure_storage,備忘錄群組碼用)全數保留。
 # 改共通依賴時兩檔都要同步改。
 
-version: 1.0.0+1
+version: 1.0.5+1
 
 environment:
   sdk: ^3.12.1

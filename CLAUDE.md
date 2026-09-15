@@ -23,6 +23,15 @@
 ## 設定檔持久化 pattern(共通)
 - identity、last_target、last_tab、`hotkey.json`、`storage_dir` 等小設定一律以純文字或 JSON 存 **appSupport**(不寫資料庫/登錄),各裝置分開記、啟動還原。下面各功能只列檔名,不再重述此 pattern。
 
+## 群組碼持久化:讀取失敗不可當成「沒有代碼」(重要,踩過)
+- 適用鬧鐘 `alarm_group`(`lib/alarm/alarm_group.dart`)與備忘錄同步 `sync_group`(`lib/core/identity.dart`),兩者是同一個 bug 形狀。
+- **踩過的雷**:`_read()` 把所有例外 catch 成 `return null`,`load()` 拿到 null 就當「首次啟動」產生新隨機碼並**覆寫**儲存,原代碼永久消失。使用者症狀:**放著半天沒開 App,鬧鐘群組代碼就跑掉**。
+- **iOS 觸發路徑**:`flutter_secure_storage` 預設 accessibility 是 `kSecAttrAccessibleWhenUnlocked`,裝置**鎖定**時 `SecItemCopyMatching` 回 `errSecInteractionNotAllowed`,套件轉成 PlatformException 拋出。鬧鐘到點的本地通知常在鎖定狀態把 App 喚到背景,正好命中。**桌面同形狀**:`StorageLocation.baseDir()` 在 macOS security-scoped bookmark 解析失敗時**靜默退回預設資料夾**(`storage_location.dart` 的 `_customPath = null`),主檔讀不到即誤判成沒有代碼。
+- **修法三件**:(1)`_read()` 回傳三態 `({bool failed, String? value})`,`failed` 時 `load()` **不產生新碼也不寫入**,只標記 `loadFailed`;(2)iOS 加 `IOSOptions(accessibility: KeychainAccessibility.first_unlock)`,開機解鎖過一次即可讀,並在讀到值後**回寫一次**完成舊 item 遷移(`kSecAttrAccessible` 是 item 屬性決定何時可解密,不重寫舊 item 遷移不會生效;套件的 read 查詢不帶此屬性故舊值仍找得到);(3)桌面在 appSupport 多寫一份備援檔,與 baseDir 主檔互補(主檔撐重裝、備援檔撐 bookmark 失效)。
+- **空碼守衛**:`loadFailed` 時代碼為空,Firestore document id 不接受空字串。`AlarmPage._subscribe()` 空碼直接 return 不訂閱,所有寫入按鈕 `groupReady ? ... : null` 停用,只留右上角「群組代碼」讓使用者手動輸入救回;`AppController.syncMemosWithAll()` 在 `_groupLoadFailed` 時直接 return(寧可暫停同步,也不要被當成「未設定」而與全網裝置互通)。
+- **重試掛在回前景**:`AlarmPage.didChangeAppLifecycleState` 的 resumed 呼 `AlarmGroup.retryLoad()`、`AppController` 的 resumed 呼 `_retryGroupCode()`。回前景代表裝置已解鎖,成功才 `notifyListeners` 補訂閱 / 重發 mDNS 通告。
+- **已跑掉的代碼救不回來**(原值已被覆寫刪除),只能從另一台未受影響的裝置抄代碼手動輸入。
+
 ## 跨裝置備忘錄(Memo Sync)
 - 「備忘錄」分頁與剪貼簿同視窗,底部 `NavigationBar` 切換(`root_page.dart`,`home:` 指向 `RootPage`);切換 index 存 appSupport `last_tab`。
 - 資料層 `lib/memos/memo_store.dart`:`Memo`(id/text/todos/updatedAt/deleted/colorValue/sortKey)、`MemoTodo`、`MemoStore extends ChangeNotifier`,持久化 `memos.json`(無資料庫)。

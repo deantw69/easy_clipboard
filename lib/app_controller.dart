@@ -30,6 +30,9 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   DeviceInfo? _local;
   Timer? _refreshTimer;
 
+  /// 群組碼讀取失敗(見 [Identity.groupLoadFailed]):同步暫停,等 [_retryGroupCode]。
+  bool _groupLoadFailed = false;
+
   List<DeviceInfo> devices = [];
   final List<ReceivedItem> received = [];
   String? status;
@@ -52,6 +55,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> init() async {
     _lastTargetId = await _loadLastTarget();
     final identity = await Identity.load();
+    _groupLoadFailed = identity.groupLoadFailed;
     final port = await _bindTransport(identity);
     _local = DeviceInfo.local(
       id: identity.deviceId,
@@ -130,6 +134,9 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   /// 沒在同步,又不會被切前景/改群組碼瞬間的單次瞬時失敗誤報(過去這裡全吞例外)。
   Future<void> syncMemosWithAll() async {
     if (!ready || _syncing) return;
+    // 群組碼讀取失敗時 groupCode 不可信(會被當成「未設定」而與全網裝置互通),
+    // 寧可暫停同步等 _retryGroupCode 讀到再說。
+    if (_groupLoadFailed) return;
     _syncing = true;
     try {
       final myGroup = _local?.groupCode ?? '';
@@ -176,10 +183,31 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   /// 目前的同步群組碼(空字串=未設定,與所有同網裝置互通)。
   String get groupCode => _local?.groupCode ?? '';
 
+  /// 群組碼讀取失敗(見 [Identity.groupLoadFailed])。為 true 時備忘錄同步暫停。
+  bool get groupLoadFailed => _groupLoadFailed;
+
+  /// 群組碼讀取失敗時重試。成功才更新本機資訊、重發 mDNS 通告並恢復同步。
+  ///
+  /// 觸發點是 App 回到前景:iOS 冷啟動當下裝置可能還沒解鎖,Keychain 讀不到,
+  /// 回前景代表已解鎖。
+  Future<void> _retryGroupCode() async {
+    if (!_groupLoadFailed) return;
+    final r = await Identity.readGroupCode();
+    if (r.failed) return;
+    _groupLoadFailed = false;
+    final local = _local;
+    if (local == null) return;
+    _local = local.copyWith(groupCode: r.value);
+    _transport?.updateLocal(_local!);
+    await _discovery.register(_local!); // 重新通告,帶上正確的群組碼 TXT
+    notifyListeners();
+  }
+
   /// 變更同步群組碼:持久化、更新本機資訊與 mDNS 廣播,並重新同步一次。
   Future<void> updateGroupCode(String code) async {
     final trimmed = code.trim();
     await Identity.saveGroupCode(trimmed);
+    _groupLoadFailed = false; // 使用者手動指定,不再依賴讀取結果
     final local = _local;
     if (local == null) return;
     _local = local.copyWith(groupCode: trimmed);
@@ -211,7 +239,8 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && ready) {
       _discovery.refresh();
-      syncMemosWithAll();
+      // 先補讀群組碼(冷啟動時裝置可能還沒解鎖),讀到才同步。
+      _retryGroupCode().then((_) => syncMemosWithAll());
     }
   }
 

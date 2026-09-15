@@ -55,7 +55,13 @@ class _AlarmPageState extends State<AlarmPage> with WidgetsBindingObserver {
   }
 
   /// 訂閱目前群組代碼對應的 Firestore document。
+  ///
+  /// 代碼為空表示 [AlarmGroup.load] 讀取失敗(例如裝置尚未解鎖,Keychain 讀不到),
+  /// 此時不可訂閱:Firestore 的 document id 不接受空字串,且訂到錯的 document 比
+  /// 不訂閱更糟。等 [retryLoad] 成功後由 [_onGroupChanged] 補訂。
   void _subscribe() {
+    if (AlarmGroup.instance.code.isEmpty) return;
+    _services.repository.setTimerId(AlarmGroup.instance.code);
     _sub = _services.repository
         .watch()
         .listen((e) => _onState(e.state, fromCache: e.fromCache));
@@ -63,8 +69,8 @@ class _AlarmPageState extends State<AlarmPage> with WidgetsBindingObserver {
 
   /// 群組代碼變更:切到新 document、重訂閱、清掉舊群組的殘留(避免舊倒數的鈴/通知還響)。
   Future<void> _onGroupChanged() async {
-    _services.repository.setTimerId(AlarmGroup.instance.code);
     await _sub?.cancel();
+    _sub = null;
     // 取消舊群組殘留的排程通知 / 響鈴 / 動態島,並重置本輪觸發旗標。
     await _services.notifications.cancelAll();
     await _services.alarm.stop();
@@ -93,6 +99,9 @@ class _AlarmPageState extends State<AlarmPage> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      // 群組代碼讀取失敗(冷啟動時裝置還沒解鎖)時在此重試:回到前景代表已解鎖。
+      // 成功會 notifyListeners → _onGroupChanged → 補上訂閱。
+      AlarmGroup.instance.retryLoad();
       _syncLiveActivity(_state, DateTime.now());
     }
   }
@@ -426,6 +435,9 @@ class _AlarmPageState extends State<AlarmPage> with WidgetsBindingObserver {
     final remaining = _state.remaining(_now);
     final status = _state.status;
     final running = status == TimerStatus.running;
+    // 群組代碼還沒取得(讀取失敗,例如裝置尚未解鎖):Firestore document id 不接受
+    // 空字串,所有讀寫都得先停用,只留「群組代碼」讓使用者手動輸入救回。
+    final groupReady = AlarmGroup.instance.code.isNotEmpty;
 
     // 深色模式把主要按鈕(啟動/暫停/繼續)壓暗一點,避免預設亮青在深色 UI 上過刺眼;
     // 連帶把文字改白確保壓暗底色後仍有對比。淺色模式維持預設(null)。
@@ -481,9 +493,21 @@ class _AlarmPageState extends State<AlarmPage> with WidgetsBindingObserver {
             ),
             const SizedBox(height: 8),
             Text(
-              statusText,
+              groupReady ? statusText : '群組代碼讀取中…',
               style: Theme.of(context).textTheme.titleMedium,
             ),
+            if (!groupReady)
+              Padding(
+                padding: const EdgeInsets.only(top: 8, left: 24, right: 24),
+                child: Text(
+                  '讀不到這台裝置的群組代碼,暫時無法同步。解鎖裝置後回到本頁會自動重試;'
+                  '若一直讀不到,可用右上角「群組代碼」手動輸入原本的代碼。',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                ),
+              ),
             if (_state.updatedBy.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
@@ -502,13 +526,15 @@ class _AlarmPageState extends State<AlarmPage> with WidgetsBindingObserver {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 OutlinedButton.icon(
-                  onPressed: () => _services.repository.addSeconds(-60),
+                  onPressed:
+                      groupReady ? () => _services.repository.addSeconds(-60) : null,
                   icon: const Icon(Icons.remove),
                   label: const Text('1 分'),
                 ),
                 const SizedBox(width: 16),
                 OutlinedButton.icon(
-                  onPressed: () => _services.repository.addSeconds(60),
+                  onPressed:
+                      groupReady ? () => _services.repository.addSeconds(60) : null,
                   icon: const Icon(Icons.add),
                   label: const Text('1 分'),
                 ),
@@ -521,14 +547,14 @@ class _AlarmPageState extends State<AlarmPage> with WidgetsBindingObserver {
               children: [
                 if (status == TimerStatus.idle) ...[
                   OutlinedButton.icon(
-                    onPressed: _pickDuration,
+                    onPressed: groupReady ? _pickDuration : null,
                     icon: const Icon(Icons.timer),
                     label: const Text('設定時間'),
                   ),
                   const SizedBox(width: 16),
                   FilledButton.icon(
                     style: darkFilledStyle,
-                    onPressed: _handleStart,
+                    onPressed: groupReady ? _handleStart : null,
                     icon: const Icon(Icons.play_arrow),
                     label: const Text('啟動'),
                   ),
@@ -536,14 +562,16 @@ class _AlarmPageState extends State<AlarmPage> with WidgetsBindingObserver {
                   if (running)
                     FilledButton.icon(
                       style: darkFilledStyle,
-                      onPressed: () => _services.repository.pause(),
+                      onPressed:
+                          groupReady ? () => _services.repository.pause() : null,
                       icon: const Icon(Icons.pause),
                       label: const Text('暫停'),
                     )
                   else
                     FilledButton.icon(
                       style: darkFilledStyle,
-                      onPressed: () => _services.repository.resume(),
+                      onPressed:
+                          groupReady ? () => _services.repository.resume() : null,
                       icon: const Icon(Icons.play_arrow),
                       label: const Text('繼續'),
                     ),
@@ -552,7 +580,7 @@ class _AlarmPageState extends State<AlarmPage> with WidgetsBindingObserver {
                     style: FilledButton.styleFrom(
                       backgroundColor: Theme.of(context).colorScheme.error,
                     ),
-                    onPressed: _stopping ? null : _handleStop,
+                    onPressed: (_stopping || !groupReady) ? null : _handleStop,
                     icon: _stopping
                         ? const SizedBox(
                             width: 18,
